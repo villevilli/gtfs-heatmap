@@ -1,7 +1,5 @@
 pub mod gtfs_types;
 
-use std::vec;
-
 use rusqlite::{Connection, Error};
 
 use crate::gtfs_types::Stop;

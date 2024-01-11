@@ -11,6 +11,7 @@ serde_json = "1.0"
 rocket = "0.5.0"
 gtfs_heatmap_lib = {path = "gtfs_heatmap_lib"}
 rusqlite = { version = "0.30.0", features = ["bundled"] }
+image = "0.24.7"
 
 [workspace]
 members = [
