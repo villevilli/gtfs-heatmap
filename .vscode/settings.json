@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./gtfs_heatmap_lib/Cargo.toml"
+    ]
+}
