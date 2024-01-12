@@ -34,7 +34,10 @@
 
         for (const stop of stops) {
             let currentMarker = leaflet
-                .circleMarker([stop.stop_lat, stop.stop_lon])
+                .circleMarker([
+                    stop.coordinates.latitude,
+                    stop.coordinates.longitude,
+                ])
                 .addTo(map);
 
             currentMarker.on("click", markerClickListener);

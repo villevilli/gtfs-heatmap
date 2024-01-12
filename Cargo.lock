@@ -509,6 +509,7 @@ dependencies = [
 name = "gtfs_heatmap_lib"
 version = "0.1.0"
 dependencies = [
+ "image",
  "rusqlite",
  "serde",
  "serde_json",

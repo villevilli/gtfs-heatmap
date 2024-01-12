@@ -54,6 +54,8 @@ CREATE TABLE stops (
   platform_code text NULL,
   vehicle_type integer NULL
 );
+CREATE INDEX lat_index ON stops (stop_lat);
+CREATE INDEX lon_index ON stops (stop_lon);
 DROP TABLE IF EXISTS routes;
 CREATE TABLE routes (
   route_id text PRIMARY KEY,
@@ -104,10 +106,8 @@ CREATE TABLE stop_times (
   shape_dist_traveled double precision NULL CHECK (shape_dist_traveled >= 0.0),
   timepoint boolean NULL
 );
-
 CREATE INDEX arrival_time_index ON stop_times (arrival_time);
 CREATE INDEX departure_time_index ON stop_times (departure_time);
-
 DROP TABLE IF EXISTS calendar;
 CREATE TABLE calendar (
   service_id text PRIMARY KEY,
