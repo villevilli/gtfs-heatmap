@@ -22,6 +22,15 @@ impl Coordinates {
         }
     }
 
+    pub fn distance(&self, other: Coordinates) -> f64 {
+        let d_lat: f64 = (other.latitude * 2.0 - self.latitude * 2.0).to_radians();
+        let d_lon: f64 = (other.longitude - self.longitude).to_radians();
+
+        let c: f64 = (d_lat.powf(2.0) + d_lon.powf(2.0)).sqrt();
+
+        c * EARTH_RADIUS
+    }
+
     pub fn haversine_distance(&self, other: Coordinates) -> f64 {
         let d_lat: f64 = (other.latitude - self.latitude).to_radians();
         let d_lon: f64 = (other.longitude - self.longitude).to_radians();

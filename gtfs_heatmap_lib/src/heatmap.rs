@@ -19,17 +19,13 @@ pub fn generate_heatmap_tile(
 ) -> GrayAlphaImage {
     let mut image = GrayAlphaImage::new(256, 256);
 
-    let mut i: u8 = 0;
-
     let mut nearby_stops: Vec<Stop> = Vec::new();
 
-    let search_radius = 0.003 * (-(zoom as f64) + 20.0) * 1.0;
-
-    dbg!(search_radius);
+    let search_radius = 0.026;
 
     for x in 0..image.width() {
         for y in 0..image.height() {
-            if ((x % 128 == 0) || (x == 255)) && ((y % 128 == 0) || (y == 255)) {
+            if (x % 16 == 0) && (y % 16 == 0) {
                 nearby_stops = get_nearby_stops(
                     &connection,
                     TileNumbers::get_pixel_coordinates(
@@ -38,8 +34,8 @@ pub fn generate_heatmap_tile(
                             x: tile_x,
                             y: tile_y,
                         },
-                        x,
-                        y,
+                        x + 16,
+                        y + 16,
                     ),
                     search_radius,
                 )
@@ -73,7 +69,7 @@ fn get_pixel_brightenss(x: u32, y: u32, nearby_stops: &Vec<Stop>, current_tile: 
     let closest_distance = nearby_stops.iter().fold(f64::INFINITY, |acc, stop| -> f64 {
         let distance = stop
             .coordinates
-            .haversine_distance(current_tile.get_pixel_coordinates(x, y));
+            .distance(current_tile.get_pixel_coordinates(x, y));
 
         if distance < acc {
             return distance;
@@ -81,5 +77,7 @@ fn get_pixel_brightenss(x: u32, y: u32, nearby_stops: &Vec<Stop>, current_tile: 
             acc
         }
     });
-    (closest_distance / WALKING_SPEED) as u8
+
+    let alpha = (closest_distance / WALKING_SPEED) as u8;
+    alpha
 }
