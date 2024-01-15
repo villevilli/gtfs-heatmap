@@ -42,8 +42,6 @@ pub fn get_nearby_stops(
     coords: Coordinates,
     search_box_distance: f64,
 ) -> Result<Vec<gtfs_types::Stop>, Error> {
-    println!("Generated new stops at:, {:?}", coords);
-
     let mut query = connection
         .prepare(
             "SELECT * FROM stops WHERE 

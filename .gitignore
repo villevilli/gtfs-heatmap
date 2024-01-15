@@ -2,3 +2,4 @@
 /data
 gtfs_db.sqlite
 gtfs_db.sqlite-journal
+/profiling
