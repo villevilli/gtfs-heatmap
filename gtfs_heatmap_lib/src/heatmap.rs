@@ -95,8 +95,6 @@ pub fn generate_heatmap_tile(
         search_radius /= CACHE_DIVIDER as f64;
     }
 
-    dbg!(search_radius);
-
     let stop_cache = StopCache::new(
         TileNumbers {
             zoom,

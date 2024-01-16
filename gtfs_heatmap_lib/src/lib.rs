@@ -1,4 +1,5 @@
 pub mod coords;
+pub mod dijkstras;
 pub mod gtfs_types;
 pub mod heatmap;
 
