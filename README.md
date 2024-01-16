@@ -7,7 +7,7 @@ And A svelte frontend
 Import data by unpacking the gtfs zip file into the data folder and
 running the following commands in the base direcory with gtfs3 cli utility connected to the database
 
-´´´
+```
 .open gtfs_db.sqlite
 .mode csv
 .import --skip 1 data/agency.txt agency
@@ -21,4 +21,4 @@ running the following commands in the base direcory with gtfs3 cli utility conne
 .import --skip 1 data/transfers.txt transfers
 .import --skip 1 data/feed_info.txt feed_info
 .import --skip 1 data/translations.txt translations
-´´´
+```
