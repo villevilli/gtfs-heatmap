@@ -107,27 +107,7 @@ pub fn generate_heatmap_tile(
 
     for x in 0..image.width() {
         for y in 0..image.height() {
-            // nearby_stops = if (x % 16 == 0) && (y % 16 == 0) {
-            //     get_nearby_stops(
-            //         &connection,
-            //         TileNumbers::get_pixel_coordinates(
-            //             &TileNumbers {
-            //                 zoom,
-            //                 x: tile_x,
-            //                 y: tile_y,
-            //             },
-            //             x + 16,
-            //             y + 16,
-            //         ),
-            //         search_radius,
-            //     )
-            //     .expect("Database Borky")
-            // } else {
-            //     Vec::new()
-            // };
-
             let nearby_stops = stop_cache.get(x, y);
-
             image.put_pixel(
                 x,
                 y,
@@ -151,7 +131,13 @@ pub fn generate_heatmap_tile(
     image
 }
 
-fn get_pixel_brightenss(x: u32, y: u32, nearby_stops: &Vec<Stop>, current_tile: TileNumbers) -> u8 {
+fn get_pixel_brightenss(
+    x: u32,
+    y: u32,
+    nearby_stops: &Vec<Stop>,
+    current_tile: TileNumbers,
+    // tile_distances: Vec<Stop>,
+) -> u8 {
     let closest_distance = nearby_stops.iter().fold(f64::INFINITY, |acc, stop| -> f64 {
         let distance = stop
             .coordinates

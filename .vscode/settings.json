@@ -2,5 +2,14 @@
     "rust-analyzer.linkedProjects": [
         "./gtfs_heatmap_lib/Cargo.toml"
     ],
-    "sqliteViewer.maxFileSize": 0
+    "sqliteViewer.maxFileSize": 0,
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "name": "gtfs_db",
+            "group": "gtfs",
+            "database": "${workspaceFolder:gtfs-heatmap}/gtfs_db.sqlite"
+        }
+    ]
 }

@@ -1,15 +1,21 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import type {
-        CircleMarker,
-        CircleMarkerOptions,
-        LatLngExpression,
-        LeafletEvent,
-        Path,
+    import {
+        type CircleMarkerOptions,
+        type LatLngExpression,
+        type LeafletEvent,
+        type TileLayer,
+        type Map,
+        latLng,
     } from "leaflet";
+    import { StopMarker } from "$lib/stopmarker";
+    import "leaflet";
 
-    let map;
+    let map: any;
+    let heatmaplayer: TileLayer;
     let mapElement: HTMLElement;
+    let selected_time = 12;
+    let selected_day = "Mon";
 
     const initialCoordinates: LatLngExpression = [60.2, 25.0];
 
@@ -26,19 +32,21 @@
         const maplib = module;
 
         let response = fetch("http://localhost:8000/api/stops");
-        map = maplib.initOsmMap(mapElement, initialCoordinates);
+        let init_return = maplib.initOsmMap(mapElement, initialCoordinates);
+
+        map = init_return[0];
+        heatmaplayer = init_return[1];
 
         let stops = await (await response).json();
 
-        let stopMarkers: CircleMarker[] = [];
+        let stopMarkers: StopMarker[] = [];
 
         for (const stop of stops) {
-            let currentMarker = leaflet
-                .circleMarker([
-                    stop.coordinates.latitude,
-                    stop.coordinates.longitude,
-                ])
-                .addTo(map);
+            let currentMarker = new StopMarker(
+                latLng(stop.coordinates.latitude, stop.coordinates.longitude),
+                normalStyle,
+                { stop_id: stop.stop_id },
+            ).addTo(map);
 
             currentMarker.on("click", markerClickListener);
 
@@ -50,9 +58,30 @@
             focusMarker(event.target);
         }
 
-        function focusMarker(circleMarker: CircleMarker) {
-            circleMarker.setStyle(focusedStyle);
-            circleMarker.bringToFront();
+        function focusMarker(stopMarker: StopMarker) {
+            stopMarker.setStyle(focusedStyle);
+            stopMarker.bringToFront();
+            updateHeatmap(
+                map,
+                heatmaplayer,
+                stopMarker.data.stop_id,
+                selected_time,
+                selected_day,
+            );
+        }
+
+        function updateHeatmap(
+            map: Map,
+            layer: TileLayer,
+            stop_id: String,
+            selected_time: Number,
+            selected_day: String,
+        ) {
+            layer.setUrl(
+                `http://localhost:8000/api/tiles/${stop_id}/${selected_time}:00:00/${selected_day}/{z}/{x}/{y}/tile.png`,
+                false,
+            );
+            map.addLayer(layer);
         }
     });
 </script>
@@ -66,7 +95,28 @@
     /></svelte:head
 >
 
-<div class="map" bind:this={mapElement}></div>
+<div class="map" bind:this={mapElement} />
+
+<div class="controlContainer leafletBar">
+    <input
+        id="time"
+        type="range"
+        min="0"
+        max="24"
+        step="2"
+        bind:value={selected_time}
+    />
+    <label for="time">{selected_time}:00</label>
+    <select bind:value={selected_day}>
+        <option value="Mon">Monday</option>
+        <option value="Tue">Tuesday</option>
+        <option value="Wen">Wednesday</option>
+        <option value="Thu">Thursday</option>
+        <option value="Fri">Friday</option>
+        <option value="Sat">Saturday</option>
+        <option value="Sun">Sunday</option>
+    </select>
+</div>
 
 <style lang="scss">
     :global(body, html) {
@@ -74,6 +124,27 @@
         height: 100%;
         box-sizing: border-box;
         margin: 0;
+    }
+
+    .controlContainer * {
+        margin: 5px;
+        display: flex;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .controlContainer {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        color: black;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        padding: 10px;
+        justify-content: space-between;
+        border-radius: 5px;
+        box-shadow: 0px 0px 6px 1px rgb(46, 46, 46);
     }
 
     .map {

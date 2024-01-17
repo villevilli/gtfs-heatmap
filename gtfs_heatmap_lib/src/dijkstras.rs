@@ -1,10 +1,12 @@
 #![allow(unused)]
 
-use std::{collections::BinaryHeap, rc::Rc};
-
-use petgraph::graph;
+use rusqlite::Connection;
 
 use crate::gtfs_types::{self, Stop};
+use std::{
+    collections::{BinaryHeap, HashMap},
+    rc::Rc,
+};
 
 struct StopNode {
     stop_id: String,
@@ -61,15 +63,26 @@ impl StopGraph {
                     is_visited: false,
                 })
             } else {
-                graph.graph.push(StopNode {
-                    stop_id: stop.stop_id.clone(),
-                    connections: Vec::new(),
-                    time_to: Some(0),
-                    is_visited: false,
-                })
+                graph.graph.insert(
+                    0,
+                    StopNode {
+                        stop_id: stop.stop_id.clone(),
+                        connections: Vec::new(),
+                        time_to: Some(0),
+                        is_visited: false,
+                    },
+                )
             }
         }
 
+        todo!()
+    }
+
+    fn get_connections(&self, time: u32, connection: &Connection) -> Vec<StopConnection> {
+        todo!()
+    }
+
+    fn to_lookup_table(&self) -> HashMap<String, u32> {
         todo!()
     }
 }

@@ -1,4 +1,4 @@
-import leaflet, { Map, type LatLngExpression } from "leaflet";
+import leaflet, { Map, type LatLngExpression, CircleMarker } from "leaflet";
 
 let map;
 
@@ -27,15 +27,34 @@ export function initOsmMap(element: HTMLElement, initialCoordinates: LatLngExpre
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
 
-    leaflet.tileLayer('http://localhost:8000/api/tiles/{z}/{x}/{y}/tile.png', {
+    let heatmap_overlay_layer = leaflet.tileLayer('', {
         maxZoom: 19,
         minZoom: 7,
         opacity: 0.7,
-    }).addTo(map);
+    })
 
-    return map
+    return [map, heatmap_overlay_layer] as const
 }
 
 export function addStopMarker(stop: { stop_lat: number; stop_lon: number; }, map: Map) {
     leaflet.circleMarker([stop.stop_lat, stop.stop_lon]).addTo(map)
+}
+
+import { LatLng, type CircleMarkerOptions } from "leaflet";
+
+interface StopMarkerData {
+    stop_id: String
+}
+
+class StopMarker extends CircleMarker {
+    public data: StopMarkerData;
+
+    public constructor(latlng: LatLng, options: CircleMarkerOptions, data: StopMarkerData) {
+        super(latlng, options);
+        this.data = data;
+    }
+
+    public update_data(data: StopMarkerData) {
+        this.data = data;
+    }
 }

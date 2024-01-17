@@ -4,6 +4,28 @@ use serde::{Deserialize, Serialize};
 use crate::coords::Coordinates;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
+
+pub struct StopTrip {
+    pub stop_id: String,
+    pub trip_id: String,
+    pub stop_sequence: u32,
+    pub arrival_time: u32,
+    pub departure_time: u32,
+}
+
+impl StopTrip {
+    pub fn try_from_row(row: &Row<'_>) -> Option<StopTrip> {
+        Some(StopTrip {
+            stop_id: row.get(0).ok()?,
+            trip_id: row.get(1).ok()?,
+            stop_sequence: row.get(2).ok()?,
+            arrival_time: row.get(3).ok()?,
+            departure_time: row.get(4).ok()?,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Stop {
     pub stop_id: String,
     pub stop_code: String,

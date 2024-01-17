@@ -59,8 +59,8 @@ fn stops() -> Json {
     )
 }
 
-#[get("/api/tiles/<zoom>/<x>/<y>/tile.png")]
-fn tiles(zoom: u32, x: u32, y: u32) -> Option<PngImage> {
+#[get("/api/tiles/<stop_id>/<time>/<day>/<zoom>/<x>/<y>/tile.png")]
+fn tiles(stop_id: &str, time: &str, day: &str, zoom: u32, x: u32, y: u32) -> Option<PngImage> {
     let connection = Connection::open(DB_LOCATION).expect("could not open db");
 
     use image::ImageOutputFormat::Png;

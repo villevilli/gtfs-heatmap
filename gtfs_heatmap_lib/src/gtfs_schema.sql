@@ -108,6 +108,7 @@ CREATE TABLE stop_times (
 );
 CREATE INDEX arrival_time_index ON stop_times (arrival_time);
 CREATE INDEX departure_time_index ON stop_times (departure_time);
+CREATE INDEX stop_id_index ON stop_times (stop_id);
 DROP TABLE IF EXISTS calendar;
 CREATE TABLE calendar (
   service_id text PRIMARY KEY,
