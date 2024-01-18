@@ -109,7 +109,7 @@ pub fn get_next_stop(
 pub fn get_next_trips_by_time(
     time: u32,
     day: &Day,
-    stop_id: String,
+    stop_id: &String,
     connection: &Connection,
 ) -> Result<Vec<StopTrip>, Error> {
     let mut query = connection

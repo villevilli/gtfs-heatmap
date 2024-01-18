@@ -14,7 +14,7 @@ use crate::{
     gtfs_types::{self, Day, DayTime, Hour, Stop, StopTrip},
 };
 use std::{
-    collections::{BinaryHeap, HashMap},
+    collections::{BTreeMap, BinaryHeap, HashMap},
     rc::Rc,
 };
 
@@ -63,36 +63,41 @@ impl From<StopTrip> for StopNode {
 }
 
 fn gen_times(daytime: &DayTime, start_node: &StopNode, connection: &Connection) -> TimeLookupTable {
-    let mut graph: BinaryHeap<StopNode> = BinaryHeap::new();
+    let mut graph: BTreeMap<String, u32> = BTreeMap::new();
     let mut lookuptable = HashMap::new();
 
-    graph.push(start_node.clone());
+    println!("Generating table!");
 
-    while let Some(next_node) = graph.pop() {
-        if lookuptable.contains_key(&next_node.stop_id) {
+    graph.insert(start_node.stop_id.clone(), 0);
+
+    while let Some((stop_id, time_to)) = graph.pop_first() {
+        if lookuptable.contains_key(&stop_id) {
+            print!("Duplicate");
             continue;
         }
-        if let Some(stops) = get_next_nodes(&next_node, connection, &daytime) {
+
+        if let Some(stops) = get_next_nodes(&stop_id, &time_to, connection, &daytime) {
             for stop in stops {
-                graph.push(stop)
+                graph.insert(stop.stop_id, stop.time_to);
             }
         }
 
-        lookuptable.insert(next_node.stop_id, next_node.time_to);
+        lookuptable.insert(stop_id, time_to);
     }
 
     lookuptable
 }
 
 fn get_next_nodes(
-    stop_node: &StopNode,
+    stop_id: &String,
+    time_to: &u32,
     connection: &Connection,
     daytime: &DayTime,
 ) -> Option<Vec<StopNode>> {
     let next_trips = get_next_trips_by_time(
-        daytime.time.as_seconds() + stop_node.time_to,
+        daytime.time.as_seconds() + time_to,
         &daytime.day,
-        stop_node.stop_id.clone(),
+        stop_id,
         connection,
     )
     .unwrap();
@@ -107,9 +112,9 @@ fn get_next_nodes(
         })
         .collect();
 
-    for stop_node in &mut temp {
-        stop_node.time_to -= daytime.time.as_seconds();
-    }
+    temp.dedup_by(|a, b| a.stop_id == b.stop_id);
+
+    dbg!(&temp);
 
     Some(temp)
 }

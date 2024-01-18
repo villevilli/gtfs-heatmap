@@ -159,5 +159,5 @@ fn get_pixel_brightenss(
         }
     });
 
-    (time / 1.0) as u8
+    (time / 10.0) as u8
 }

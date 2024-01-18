@@ -1,7 +1,7 @@
 SELECT stop_id,
     trips.trip_id,
     stop_sequence,
-    strftime("%S", arrival_time),
+    arrival_time,
     departure_time
 FROM stop_times
     JOIN trips ON stop_times.trip_id = trips.trip_id
@@ -22,5 +22,6 @@ FROM stop_times
 WHERE stop_sequence > 16
     AND stop_times.trip_id = "1055_20240109_Ma_1_1134"
 GROUP BY stop_times.trip_id
-ORDER BY stop_sequence --@block
-SELECT unixepoch(time("20:00:00"))
+ORDER BY stop_sequence;
+--@block
+SELECT unixepoch(time("20:00:00"));
