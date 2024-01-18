@@ -12,3 +12,5 @@ rusqlite = { version = "0.30.0", features = ["bundled"] }
 image = "0.24.7"
 rayon = "1.8.0"
 petgraph = "0.6.4"
+time = {version = "0.3.31", features = ["parsing", "formatting"]}
+speedate = "0.13.0"

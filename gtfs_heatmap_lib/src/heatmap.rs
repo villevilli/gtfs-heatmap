@@ -3,6 +3,7 @@ use rusqlite::Connection;
 
 use crate::{
     coords::{Coordinates, TileNumbers},
+    dijkstras::TimeLookupTable,
     get_nearby_stops,
     gtfs_types::Stop,
 };
@@ -84,6 +85,7 @@ pub fn generate_heatmap_tile(
     tile_x: u32,
     tile_y: u32,
     connection: Connection,
+    stop_time_lookuptable: &TimeLookupTable,
 ) -> GrayAlphaImage {
     let mut image = GrayAlphaImage::new(TILE_SIZE, TILE_SIZE);
 
@@ -122,6 +124,7 @@ pub fn generate_heatmap_tile(
                             x: tile_x,
                             y: tile_y,
                         },
+                        &stop_time_lookuptable,
                     ),
                 ]),
             )
@@ -136,12 +139,18 @@ fn get_pixel_brightenss(
     y: u32,
     nearby_stops: &Vec<Stop>,
     current_tile: TileNumbers,
-    // tile_distances: Vec<Stop>,
+    time_lookup_table: &TimeLookupTable,
 ) -> u8 {
-    let closest_distance = nearby_stops.iter().fold(f64::INFINITY, |acc, stop| -> f64 {
-        let distance = stop
+    let time: (f64) = nearby_stops.iter().fold(f64::INFINITY, |acc, stop| -> f64 {
+        let mut distance = stop
             .coordinates
-            .distance(current_tile.get_pixel_coordinates(x, y));
+            .distance(current_tile.get_pixel_coordinates(x, y))
+            / WALKING_SPEED;
+
+        distance += *time_lookup_table
+            .get(&stop.stop_id)
+            .or(Some(&u32::MAX))
+            .unwrap() as f64;
 
         if distance < acc {
             return distance;
@@ -150,6 +159,5 @@ fn get_pixel_brightenss(
         }
     });
 
-    let alpha = (closest_distance / WALKING_SPEED) as u8;
-    alpha
+    (time / 1.0) as u8
 }

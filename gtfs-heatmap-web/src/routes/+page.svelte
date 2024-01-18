@@ -78,7 +78,7 @@
             selected_day: String,
         ) {
             layer.setUrl(
-                `http://localhost:8000/api/tiles/${stop_id}/${selected_time}:00:00/${selected_day}/{z}/{x}/{y}/tile.png`,
+                `http://localhost:8000/api/tiles/${stop_id}/${selected_time}/${selected_day}/{z}/{x}/{y}/tile.png`,
                 false,
             );
             map.addLayer(layer);
