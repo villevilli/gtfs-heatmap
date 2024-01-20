@@ -1,11 +1,9 @@
 use std::fmt::{self, format};
 use std::str::FromStr;
 
-use rusqlite::Row;
-use serde::{de, Deserialize, Serialize};
-use time::macros::format_description;
-
-use speedate::Time;
+use deadpool_postgres::tokio_postgres;
+use deadpool_postgres::tokio_postgres::Row;
+use serde::{Deserialize, Serialize};
 
 use crate::coords::Coordinates;
 
@@ -21,20 +19,22 @@ pub struct StopTrip {
     pub departure_time: u32,
 }
 
-impl StopTrip {
-    pub fn try_from_row(row: &Row<'_>) -> Option<StopTrip> {
-        let arrival_time_string: String = row.get(3).ok()?;
-        let departure_time_string: String = row.get(3).ok()?;
+impl TryFrom<&Row> for StopTrip {
+    type Error = tokio_postgres::Error;
+
+    fn try_from(row: &Row) -> Result<StopTrip, tokio_postgres::Error> {
+        let arrival_time_string: String = row.try_get::<usize, String>(3)?;
+        let departure_time_string: String = row.try_get::<usize, String>(3)?;
 
         let mut stop_trip = StopTrip {
-            stop_id: row.get(0).ok()?,
-            trip_id: row.get(1).ok()?,
-            stop_sequence: row.get(2).ok()?,
+            stop_id: row.try_get::<usize, String>(0)?,
+            trip_id: row.try_get::<usize, String>(1)?,
+            stop_sequence: row.try_get::<usize, u32>(2)?,
             arrival_time: parse_time(&arrival_time_string),
             departure_time: parse_time(&departure_time_string),
         };
 
-        Some(stop_trip)
+        Ok(stop_trip)
     }
 }
 
@@ -63,22 +63,24 @@ pub struct Stop {
     pub parent_station: String,
     pub wheelchair_boarding: u32,
 }
-impl Stop {
-    pub fn try_from_row(row: &Row<'_>) -> Option<Stop> {
-        Some(Stop {
-            stop_id: row.get(0).ok()?,
-            stop_code: row.get(1).ok()?,
-            stop_name: row.get(2).ok()?,
-            stop_desc: row.get(3).ok()?,
+impl TryFrom<&Row> for Stop {
+    type Error = tokio_postgres::Error;
+
+    fn try_from(row: &Row) -> Result<Stop, tokio_postgres::Error> {
+        Ok(Stop {
+            stop_id: row.try_get::<usize, String>(0)?,
+            stop_code: row.try_get::<usize, String>(1)?,
+            stop_name: row.try_get::<usize, String>(2)?,
+            stop_desc: row.try_get::<usize, String>(3)?,
             coordinates: Coordinates {
-                latitude: row.get(4).ok()?,
-                longitude: row.get(5).ok()?,
+                latitude: row.try_get::<usize, f64>(4)?,
+                longitude: row.try_get::<usize, f64>(5)?,
             },
-            zone_id: row.get(6).ok()?,
-            stop_url: row.get(7).ok()?,
-            location_type: row.get(8).ok()?,
-            parent_station: row.get(9).ok()?,
-            wheelchair_boarding: row.get(10).ok()?,
+            zone_id: row.try_get::<usize, String>(6)?,
+            stop_url: row.try_get::<usize, String>(7)?,
+            location_type: row.try_get::<usize, u32>(8)?,
+            parent_station: row.try_get::<usize, String>(9)?,
+            wheelchair_boarding: row.try_get::<usize, u32>(10)?,
         })
     }
 }

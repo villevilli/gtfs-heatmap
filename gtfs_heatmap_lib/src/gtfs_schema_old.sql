@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS agency CASCADE;
+DROP TABLE IF EXISTS agency;
 CREATE TABLE agency (
   agency_id text UNIQUE NULL,
   agency_name text NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE agency (
   agency_phone text NULL,
   agency_fare_url text NULL
 );
-DROP TABLE IF EXISTS stops CASCADE;
+DROP TABLE IF EXISTS stops;
 CREATE TABLE stops (
   stop_id text PRIMARY KEY,
   stop_code text NULL,
@@ -54,7 +54,9 @@ CREATE TABLE stops (
   platform_code text NULL,
   vehicle_type integer NULL
 );
-DROP TABLE IF EXISTS routes CASCADE;
+CREATE INDEX lat_index ON stops (stop_lat);
+CREATE INDEX lon_index ON stops (stop_lon);
+DROP TABLE IF EXISTS routes;
 CREATE TABLE routes (
   route_id text PRIMARY KEY,
   agency_id text NULL REFERENCES agency(agency_id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -67,7 +69,7 @@ CREATE TABLE routes (
   route_type integer NOT NULL,
   route_url text NULL
 );
-DROP TABLE IF EXISTS trips CASCADE;
+DROP TABLE IF EXISTS trips;
 CREATE TABLE trips (
   route_id text NOT NULL REFERENCES routes ON DELETE CASCADE ON UPDATE CASCADE,
   service_id text NOT NULL,
@@ -85,7 +87,7 @@ CREATE TABLE trips (
   ),
   max_delay text NULL
 );
-DROP TABLE IF EXISTS stop_times CASCADE;
+DROP TABLE IF EXISTS stop_times;
 CREATE TABLE stop_times (
   trip_id text NOT NULL REFERENCES trips ON DELETE CASCADE ON UPDATE CASCADE,
   arrival_time interval NULL,
@@ -104,7 +106,10 @@ CREATE TABLE stop_times (
   shape_dist_traveled double precision NULL CHECK (shape_dist_traveled >= 0.0),
   timepoint boolean NULL
 );
-DROP TABLE IF EXISTS calendar CASCADE;
+CREATE INDEX arrival_time_index ON stop_times (arrival_time);
+CREATE INDEX departure_time_index ON stop_times (departure_time);
+CREATE INDEX stop_id_index ON stop_times (stop_id);
+DROP TABLE IF EXISTS calendar;
 CREATE TABLE calendar (
   service_id text PRIMARY KEY,
   monday boolean NOT NULL,
@@ -117,7 +122,7 @@ CREATE TABLE calendar (
   start_date numeric(8) NOT NULL,
   end_date numeric(8) NOT NULL
 );
-DROP TABLE IF EXISTS calendar_dates CASCADE;
+DROP TABLE IF EXISTS calendar_dates;
 CREATE TABLE calendar_dates (
   service_id text NOT NULL,
   date numeric(8) NOT NULL,
@@ -126,7 +131,7 @@ CREATE TABLE calendar_dates (
     AND exception_type <= 2
   )
 );
-DROP TABLE IF EXISTS fare_attributes CASCADE;
+DROP TABLE IF EXISTS fare_attributes;
 CREATE TABLE fare_attributes (
   fare_id text PRIMARY KEY,
   price double precision NOT NULL CHECK (price >= 0.0),
@@ -138,7 +143,7 @@ CREATE TABLE fare_attributes (
   ),
   transfer_duration integer NULL CHECK (transfer_duration >= 0)
 );
-DROP TABLE IF EXISTS fare_rules CASCADE;
+DROP TABLE IF EXISTS fare_rules;
 CREATE TABLE fare_rules (
   fare_id text NOT NULL REFERENCES fare_attributes ON DELETE CASCADE ON UPDATE CASCADE,
   route_id text NULL REFERENCES routes ON DELETE CASCADE ON UPDATE CASCADE,
@@ -146,7 +151,7 @@ CREATE TABLE fare_rules (
   destination_id text NULL,
   contains_id text NULL
 );
-DROP TABLE IF EXISTS shapes CASCADE;
+DROP TABLE IF EXISTS shapes;
 CREATE TABLE shapes (
   shape_id text NOT NULL,
   shape_pt_lat double precision NOT NULL,
@@ -154,7 +159,7 @@ CREATE TABLE shapes (
   shape_pt_sequence integer NOT NULL CHECK (shape_pt_sequence >= 0),
   shape_dist_traveled double precision NULL CHECK (shape_dist_traveled >= 0.0)
 );
-DROP TABLE IF EXISTS transfers CASCADE;
+DROP TABLE IF EXISTS transfers;
 CREATE TABLE transfers (
   from_stop_id text NOT NULL REFERENCES stops(stop_id) ON DELETE CASCADE ON UPDATE CASCADE,
   to_stop_id text NOT NULL REFERENCES stops(stop_id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -164,7 +169,7 @@ CREATE TABLE transfers (
   ),
   min_transfer_time integer NULL CHECK (min_transfer_time >= 0)
 );
-DROP TABLE IF EXISTS feed_info CASCADE;
+DROP TABLE IF EXISTS feed_info;
 CREATE TABLE feed_info (
   feed_publisher_name text NOT NULL,
   feed_publisher_url text NOT NULL,
@@ -173,45 +178,9 @@ CREATE TABLE feed_info (
   feed_end_date numeric(8) NULL,
   feed_version text NULL
 );
-DROP TABLE IF EXISTS translations CASCADE;
+DROP TABLE IF EXISTS translations;
 CREATE TABLE translations (
   trans_id text NULL,
   lang text NULL,
   translation text NOT NULL
 );
---@block create indexses
-CREATE INDEX arrival_time_index ON stop_times (arrival_time);
-CREATE INDEX departure_time_index ON stop_times (departure_time);
-CREATE INDEX stop_id_index ON stop_times (stop_id);
-CREATE INDEX lat_index ON stops (stop_lat);
-CREATE INDEX lon_index ON stops (stop_lon);
-CREATE INDEX trip_id_hash_index ON stop_times USING HASH (trip_id);
-CREATE INDEX trip_id_btree_index ON stop_times (trip_id);
-CREATE INDEX trips_trip_id_hash_index ON trips USING HASH (trip_id);
-CREATE INDEX stop_sequence_index ON trips (trip_id);
--- COPY agency
--- FROM 'data/agency.txt' (FORMAT CSV, HEADER);
--- COPY stops
--- FROM 'data/stops.txt' (FORMAT CSV, HEADER);
--- COPY routes
--- FROM 'data/routes.txt' (FORMAT CSV, HEADER);
--- COPY trips
--- FROM 'data/trips.txt' (FORMAT CSV, HEADER);
--- COPY stop_times
--- FROM 'data/stop_times.txt' (FORMAT CSV, HEADER);
--- COPY calendar
--- FROM 'data/calendar.txt' (FORMAT CSV, HEADER);
--- COPY calendar_dates
--- FROM 'data/calendar_dates.txt' (FORMAT CSV, HEADER);
--- COPY fare_attributes
--- FROM 'data/fare_attributes.txt' (FORMAT CSV, HEADER);
--- COPY fare_rules
--- FROM 'data/fare_rules.txt' (FORMAT CSV, HEADER);
--- COPY shapes
--- FROM 'data/shapes.txt' (FORMAT CSV, HEADER);
--- COPY transfers
--- FROM 'data/transfers.txt' (FORMAT CSV, HEADER);
--- COPY feed_info
--- FROM 'data/feed_info.txt' (FORMAT CSV, HEADER);
--- COPY translations
--- FROM 'data/translations.txt' (FORMAT CSV, HEADER);

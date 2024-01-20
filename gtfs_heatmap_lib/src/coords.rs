@@ -1,6 +1,5 @@
 use std::f64::{self, consts::PI};
 
-use rusqlite::Map;
 use serde::{Deserialize, Serialize};
 
 const EARTH_RADIUS: f64 = 6_317_000.0;

@@ -13,8 +13,13 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rocket = "0.5"
 gtfs_heatmap_lib = {path = "gtfs_heatmap_lib"}
-rusqlite = { version = "0.30.0", features = ["bundled"] }
+postgres = "0.19.7"
 image = "0.24.8"
+
+[dependencies.rocket_db_pools]
+version = "0.1.0"
+features = ["deadpool_postgres"]
+
 
 [workspace]
 members = [

@@ -1,0 +1,3 @@
+[default.databases.psql_gtfs]
+url = "postgresql://localhost:5432/gtfs-heatmap"
+user = "gtfs-heatmap"

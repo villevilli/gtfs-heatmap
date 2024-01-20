@@ -1,148 +1,170 @@
+#![feature(async_closure)]
+
 pub mod coords;
 pub mod dijkstras;
 pub mod gtfs_types;
 pub mod heatmap;
 
+use std::os::linux::raw::stat;
+
 use coords::Coordinates;
-use gtfs_types::{Day, StopTrip};
-use rusqlite::{params, Connection};
-use speedate::Duration;
+use deadpool_postgres::tokio_postgres::{self, Client};
+use futures::executor;
+use gtfs_types::{seconds_to_hhmmss, Day, StopTrip};
 
 #[derive(Debug)]
 pub enum Error {
     ParseError,
-    RusqliteError(rusqlite::Error),
+    PostgresError(tokio_postgres::Error),
 }
 
-use crate::gtfs_types::{seconds_to_hhmmss, Stop};
+impl From<tokio_postgres::Error> for Error {
+    fn from(value: tokio_postgres::Error) -> Self {
+        Self::PostgresError(value)
+    }
+}
+
+use crate::gtfs_types::Stop;
 
 static DB_SCHEMA: &str = include_str!("gtfs_schema.sql");
 
-pub fn initdb(location: &str) -> Result<Connection, Error> {
-    let gtfs_db_connection = Connection::open(location).map_err(|err| Error::RusqliteError(err))?;
-    gtfs_db_connection
-        .execute_batch(DB_SCHEMA)
-        .map_err(|err| Error::RusqliteError(err))?;
-    Ok(gtfs_db_connection)
+// pub fn initdb(location: &str) -> Result<Client, Error> {
+//     let mut gtfs_db_connection =
+//         Client::connect(location, NoTls).map_err(|err| Error::PostgresError(err))?;
+//     gtfs_db_connection
+//         .batch_execute(DB_SCHEMA)
+//         .map_err(|err| Error::PostgresError(err))?;
+//     Ok(gtfs_db_connection)
+// }
+
+pub async fn get_stops(client: &Client) -> Result<Vec<gtfs_types::Stop>, Error> {
+    let rows = client
+        .query("SELECT * FROM stops", &[])
+        .await
+        .map_err(|err| Error::PostgresError(err))?;
+
+    rows.iter()
+        .map(|row| row.try_into().map_err(|err| Error::PostgresError(err)))
+        .collect()
 }
 
-pub fn get_stops(connection: Connection) -> Result<Vec<gtfs_types::Stop>, Error> {
-    let mut query = connection
-        .prepare("SELECT * FROM stops")
-        .map_err(|err| Error::RusqliteError(err))?;
-    let mut rows = query.query([]).map_err(|err| Error::RusqliteError(err))?;
-    let mut stops: Vec<Stop> = Vec::new();
-
-    while let Some(row) = rows.next().map_err(|err| Error::RusqliteError(err))? {
-        stops.push(Stop::try_from_row(row).ok_or(Error::ParseError)?);
-    }
-
-    Ok(stops)
-}
-
-pub fn get_stop_connection(connection: &Connection) -> Result<Vec<Stop>, Error> {
+pub fn get_stop_connection(client: &Client) -> Result<Vec<Stop>, Error> {
     todo!()
 }
 
-pub fn get_nearby_stops(
-    connection: &Connection,
-    coords: Coordinates,
-    search_box_distance: f64,
+pub async fn get_nearby_stops(
+    client: &Client,
+    coords: &Coordinates,
+    search_box_distance: &f64,
 ) -> Result<Vec<gtfs_types::Stop>, Error> {
-    let mut query = connection
-        .prepare_cached(
-            "SELECT * FROM stops WHERE 
-            stop_lat < (?1)+(?3) AND stop_lat > (?1)-(?3) AND
-            stop_lon < (?2)+(?3) AND stop_lon > (?2)-(?3)",
-        )
-        .map_err(|err| Error::RusqliteError(err))?;
-
-    let mut rows = query
-        .query(params![
-            coords.latitude,
-            coords.longitude,
-            search_box_distance
-        ])
-        .map_err(|err| Error::RusqliteError(err))?;
-    let mut stops: Vec<Stop> = Vec::new();
-
-    while let Some(row) = rows.next().map_err(|err| Error::RusqliteError(err))? {
-        stops.push(Stop::try_from_row(row).ok_or(Error::ParseError)?);
-    }
-
-    Ok(stops)
-}
-
-pub fn get_next_stop(
-    trip_id: String,
-    stop_sequence: u32,
-    connection: &Connection,
-) -> Result<StopTrip, Error> {
-    let mut query = connection
+    let mut statement = client
         .prepare(
-            "
-            SELECT stop_id,
-            trips.trip_id,
-            MIN(stop_sequence),
-            arrival_time,
-            departure_time
-        FROM stop_times
-            JOIN trips ON stop_times.trip_id = trips.trip_id
-        WHERE stop_sequence > (?2)
-            AND stop_times.trip_id = (?1)
-        GROUP BY stop_times.trip_id
-        ORDER BY stop_sequence",
+            "SELECT * FROM stops WHERE 
+            stop_lat < ($1)+($3) AND stop_lat > ($1)-($3) AND
+            stop_lon < ($2)+($3) AND stop_lon > ($2)-($3)",
         )
-        .map_err(|err| Error::RusqliteError(err))?;
+        .await
+        .map_err(|err| Error::PostgresError(err))?;
 
-    let mut binding = query
-        .query(params![trip_id, stop_sequence])
-        .map_err(|err| Error::RusqliteError(err))?;
-    let row = binding
-        .next()
-        .map_err(|err| Error::RusqliteError(err))?
-        .ok_or(Error::ParseError)?;
-
-    Ok(StopTrip::try_from_row(row).ok_or(Error::ParseError)?)
+    let rows = client
+        .query(
+            &statement,
+            &[&coords.latitude, &coords.longitude, &search_box_distance],
+        )
+        .await
+        .map_err(|x| Error::PostgresError(x))?;
+    rows.iter()
+        .map(|row| Stop::try_from(row).map_err(|err| Error::PostgresError(err)))
+        .collect()
 }
 
-pub fn get_next_trips_by_time(
-    time: u32,
-    day: &Day,
-    stop_id: &String,
-    connection: &Connection,
-) -> Result<Vec<StopTrip>, Error> {
-    let mut query = connection
-        .prepare_cached(
+pub fn get_next_stop_sync(
+    trip_id: &String,
+    stop_sequence: &u32,
+    client: &Client,
+) -> Result<StopTrip, Error> {
+    let next_stop = get_next_stop(trip_id, stop_sequence, client);
+    executor::block_on(next_stop)
+}
+
+pub async fn get_next_stop(
+    trip_id: &String,
+    stop_sequence: &u32,
+    client: &Client,
+) -> Result<StopTrip, Error> {
+    let statement = client
+        .prepare(
             "
         SELECT stop_id,
             trips.trip_id,
             stop_sequence,
-            arrival_time,
-            departure_time
+            EXTRACT(
+                epoch
+                FROM arrival_time
+            ) as arrival_time,
+            EXTRACT(
+                epoch
+                FROM departure_time
+            ) as departure_time
         FROM stop_times
             JOIN trips ON stop_times.trip_id = trips.trip_id
-        WHERE stop_id = (?1)
-            AND departure_time >= time((?2))
-            AND service_id LIKE (?3)
-        GROUP BY trips.route_id
+        WHERE stop_sequence > ($2)
+            AND stop_times.trip_id = ($1)
+        ORDER BY stop_sequence
+        LIMIT 1;
+        ",
+        )
+        .await
+        .map_err(|err| Error::PostgresError(err))?;
+
+    let row = client
+        .query_one(&statement, &[trip_id, stop_sequence])
+        .await?;
+
+    Ok(StopTrip::try_from(&row)?)
+}
+
+pub async fn get_next_trips_by_time(
+    time: u32,
+    day: &Day,
+    stop_id: &String,
+    client: &Client,
+) -> Result<Vec<StopTrip>, Error> {
+    let statement = client
+        .prepare(
+            "
+        SELECT DISTINCT ON (trips.route_id) stop_id,
+            trips.trip_id,
+            stop_sequence,
+            EXTRACT(
+                epoch
+                FROM arrival_time
+            ) as arrival_time,
+            EXTRACT(
+                epoch
+                FROM departure_time
+            ) as departure_time
+        FROM stop_times
+            JOIN trips ON stop_times.trip_id = trips.trip_id
+        WHERE stop_id = ($1)
+            AND departure_time >= make_interval(0, 0, 0, 0, 0, 0, $2)
+            AND service_id SIMILAR TO ($3)
         ORDER BY departure_time;",
         )
-        .map_err(|err| Error::RusqliteError(err))?;
+        .await?;
 
-    let mut rows = query
-        .query(params![
-            stop_id,
-            seconds_to_hhmmss(time),
-            "%_".to_string() + &day.to_string()
-        ])
-        .map_err(|err| Error::RusqliteError(err))?;
+    let rows = client
+        .query(
+            &statement,
+            &[
+                stop_id,
+                &seconds_to_hhmmss(time),
+                &("%_".to_string() + &day.to_string()),
+            ],
+        )
+        .await?;
 
-    let mut stop_trips = Vec::new();
-
-    while let Some(row) = rows.next().map_err(|err| Error::RusqliteError(err))? {
-        stop_trips.push(StopTrip::try_from_row(row).ok_or(Error::ParseError)?);
-    }
-
-    Ok(stop_trips)
+    rows.iter()
+        .map(|x| StopTrip::try_from(x).map_err(|err| Error::PostgresError(err)))
+        .collect()
 }

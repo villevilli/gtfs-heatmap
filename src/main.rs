@@ -1,22 +1,53 @@
+use rocket::response::Responder;
+use rocket::tokio::sync::RwLock;
 use std::fs::File;
 use std::io::Cursor;
-use std::sync::RwLock;
+
+use rocket_db_pools;
+use rocket_db_pools::deadpool_postgres::tokio_postgres;
+use rocket_db_pools::deadpool_postgres::tokio_postgres::GenericClient;
+use rocket_db_pools::Connection;
+use rocket_db_pools::{deadpool_postgres, Database};
 
 use gtfs_heatmap_lib::dijkstras::{StopMapCache, StopNode};
-use gtfs_heatmap_lib::gtfs_types::{Day, DayTime, Hour, StopTrip};
+use gtfs_heatmap_lib::get_stops;
+use gtfs_heatmap_lib::gtfs_types::{Day, DayTime, Hour};
 use gtfs_heatmap_lib::heatmap::generate_heatmap_tile;
-use gtfs_heatmap_lib::{get_stops, gtfs_types, initdb};
 
-use rusqlite::Connection;
+use rocket::fairing::{Fairing, Info, Kind};
+use rocket::http::Header;
+use rocket::{Request, Response, State};
+
+use postgres::{Client, NoTls};
 
 #[macro_use]
 extern crate rocket;
 
-const DB_LOCATION: &str = "gtfs_db.sqlite";
+const DB_CONNECTION: &'static str = "host=localhost user=postgres";
 
-use rocket::fairing::{Fairing, Info, Kind};
-use rocket::http::Header;
-use rocket::{Ignite, Request, Response, State};
+#[derive(Responder)]
+#[response(content_type = "application/json")]
+enum Error {
+    #[response(status = 500, content_type = "json")]
+    PgError(String),
+    #[response(status = 500)]
+    GtfsErr(()),
+    #[response(status = 500)]
+    JsonError(()),
+}
+
+impl From<gtfs_heatmap_lib::Error> for Error {
+    fn from(value: gtfs_heatmap_lib::Error) -> Self {
+        match value {
+            gtfs_heatmap_lib::Error::ParseError => Self::GtfsErr(()),
+            gtfs_heatmap_lib::Error::PostgresError(value) => Self::PgError(value.to_string()),
+        }
+    }
+}
+
+#[derive(Database)]
+#[database("psql_gtfs")]
+struct Gtfs(deadpool_postgres::Pool);
 
 pub struct CORS;
 
@@ -54,16 +85,16 @@ fn index() -> &'static str {
 }
 
 #[get("/api/stops")]
-fn stops() -> Json {
-    let connection = Connection::open(DB_LOCATION).expect("could not open db");
-    Json(
-        serde_json::to_string(&get_stops(connection).expect("Something went wrong o o"))
-            .expect("lol"),
-    )
+async fn stops(mut db: Connection<Gtfs>) -> Result<Json, Error> {
+    let client = db.client();
+    Ok(Json(
+        serde_json::to_string(&get_stops(client).await?).map_err(|err| Error::JsonError(()))?,
+    ))
 }
 
 #[get("/api/tiles/<stop_id>/<hour>/<day>/<zoom>/<x>/<y>/tile.png")]
-fn tiles(
+async fn tiles(
+    mut db: Connection<Gtfs>,
     stop_id: &str,
     hour: u32,
     day: &str,
@@ -74,13 +105,11 @@ fn tiles(
 ) -> Option<PngImage> {
     use image::ImageOutputFormat::Png;
 
-    let connection = Connection::open(DB_LOCATION).expect("could not open db");
-
     let day = day.parse::<Day>().ok()?;
 
     let time = Hour::try_from(hour).ok()?;
 
-    let lookup_table_cache = lookup_table_cache_guard.read().ok()?;
+    let lookup_table_cache = lookup_table_cache_guard.read().await;
 
     match lookup_table_cache.get_if_current(
         DayTime { day, time },
@@ -90,14 +119,14 @@ fn tiles(
         },
     ) {
         Some(lookup_table) => {
-            let tile = generate_heatmap_tile(zoom, x, y, connection, lookup_table);
+            let tile = generate_heatmap_tile(zoom, x, y, db.client(), lookup_table).await;
             let mut writer = Cursor::new(Vec::new());
             tile.write_to(&mut writer, Png).ok()?;
             Some(PngImage(writer.into_inner()))
         }
         None => {
             drop(lookup_table_cache);
-            let mut lookup_table_cache = lookup_table_cache_guard.write().ok()?;
+            let mut lookup_table_cache = lookup_table_cache_guard.write().await;
 
             lookup_table_cache.update_lookup_table(
                 DayTime { day, time },
@@ -105,10 +134,11 @@ fn tiles(
                     stop_id: stop_id.to_string(),
                     time_to: 0,
                 },
-                &connection,
+                db.client(),
             );
 
-            let tile = generate_heatmap_tile(zoom, x, y, connection, lookup_table_cache.get());
+            let tile =
+                generate_heatmap_tile(zoom, x, y, db.client(), lookup_table_cache.get()).await;
             let mut writer = Cursor::new(Vec::new());
             tile.write_to(&mut writer, Png).ok()?;
             Some(PngImage(writer.into_inner()))
@@ -123,5 +153,6 @@ fn rocket() -> _ {
     rocket::build()
         .attach(CORS)
         .manage(stop_map_cache)
+        .attach(Gtfs::init())
         .mount("/", routes![index, stops, tiles])
 }

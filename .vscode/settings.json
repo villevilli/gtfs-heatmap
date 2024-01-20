@@ -10,6 +10,16 @@
             "name": "gtfs_db",
             "group": "gtfs",
             "database": "${workspaceFolder:gtfs-heatmap}/gtfs_db.sqlite"
+        },
+        {
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "gtfs-heatmap-db",
+            "database": "gtfs-heatmap",
+            "username": "ville",
+            "password": ""
         }
     ]
 }

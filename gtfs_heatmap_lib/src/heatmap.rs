@@ -1,5 +1,5 @@
+use deadpool_postgres::tokio_postgres::Client;
 use image::{GrayAlphaImage, LumaA};
-use rusqlite::Connection;
 
 use crate::{
     coords::{Coordinates, TileNumbers},
@@ -40,16 +40,16 @@ impl StopCache {
             .get(cache_y as usize)
             .unwrap_or_else(|| panic!("{:#?}", self.stops.len()))
     }
-    fn new(tile: TileNumbers, connection: &Connection, search_box_distance: f64) -> StopCache {
+    async fn new(tile: TileNumbers, connection: &Client, search_box_distance: &f64) -> StopCache {
         StopCache {
-            stops: StopCache::gen_stops(&tile, connection, search_box_distance),
+            stops: StopCache::gen_stops(&tile, connection, search_box_distance).await,
             tile,
         }
     }
-    fn gen_stops(
+    async fn gen_stops(
         tile: &TileNumbers,
-        connection: &Connection,
-        search_box_distance: f64,
+        connection: &Client,
+        search_box_distance: &f64,
     ) -> StopCacheArray {
         let mut stops: StopCacheArray = StopCacheArray::new();
 
@@ -64,13 +64,14 @@ impl StopCache {
                 row.push(
                     get_nearby_stops(
                         &connection,
-                        TileNumbers::get_pixel_coordinates(
+                        &TileNumbers::get_pixel_coordinates(
                             &tile,
                             x * 16 + CACHE_DIVIDER / 2,
                             y * 16 + CACHE_DIVIDER / 2,
                         ),
                         search_box_distance,
                     )
+                    .await
                     .unwrap(),
                 )
             }
@@ -80,11 +81,11 @@ impl StopCache {
     }
 }
 
-pub fn generate_heatmap_tile(
+pub async fn generate_heatmap_tile(
     zoom: u32,
     tile_x: u32,
     tile_y: u32,
-    connection: Connection,
+    connection: &Client,
     stop_time_lookuptable: &TimeLookupTable,
 ) -> GrayAlphaImage {
     let mut image = GrayAlphaImage::new(TILE_SIZE, TILE_SIZE);
@@ -96,7 +97,6 @@ pub fn generate_heatmap_tile(
     if search_radius > 0.001 {
         search_radius /= CACHE_DIVIDER as f64;
     }
-
     let stop_cache = StopCache::new(
         TileNumbers {
             zoom,
@@ -104,8 +104,9 @@ pub fn generate_heatmap_tile(
             y: tile_y,
         },
         &connection,
-        0.02,
-    );
+        &search_radius,
+    )
+    .await;
 
     for x in 0..image.width() {
         for y in 0..image.height() {
@@ -141,7 +142,7 @@ fn get_pixel_brightenss(
     current_tile: TileNumbers,
     time_lookup_table: &TimeLookupTable,
 ) -> u8 {
-    let time: (f64) = nearby_stops.iter().fold(f64::INFINITY, |acc, stop| -> f64 {
+    let time: f64 = nearby_stops.iter().fold(f64::INFINITY, |acc, stop| -> f64 {
         let mut distance = stop
             .coordinates
             .distance(current_tile.get_pixel_coordinates(x, y))
