@@ -1,24 +1,15 @@
 use rocket::response::Responder;
 use rocket::tokio::sync::RwLock;
-use std::fs::File;
 use std::io::Cursor;
 
-use rocket_db_pools;
-use rocket_db_pools::deadpool_postgres::tokio_postgres;
-use rocket_db_pools::deadpool_postgres::tokio_postgres::GenericClient;
-use rocket_db_pools::Connection;
-use rocket_db_pools::{deadpool_postgres, Database};
-
 use gtfs_heatmap_lib::dijkstras::{StopMapCache, StopNode};
-use gtfs_heatmap_lib::get_stops;
 use gtfs_heatmap_lib::gtfs_types::{Day, DayTime, Hour};
 use gtfs_heatmap_lib::heatmap::generate_heatmap_tile;
+use gtfs_heatmap_lib::{get_stops, Gtfs};
 
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
 use rocket::{Request, Response, State};
-
-use postgres::{Client, NoTls};
 
 #[macro_use]
 extern crate rocket;
@@ -26,9 +17,9 @@ extern crate rocket;
 const DB_CONNECTION: &'static str = "host=localhost user=postgres";
 
 #[derive(Responder)]
-#[response(content_type = "application/json")]
+#[response(content_type = "text/plain")]
 enum Error {
-    #[response(status = 500, content_type = "json")]
+    #[response(status = 500, content_type = "text/plain")]
     PgError(String),
     #[response(status = 500)]
     GtfsErr(()),
@@ -40,14 +31,9 @@ impl From<gtfs_heatmap_lib::Error> for Error {
     fn from(value: gtfs_heatmap_lib::Error) -> Self {
         match value {
             gtfs_heatmap_lib::Error::ParseError => Self::GtfsErr(()),
-            gtfs_heatmap_lib::Error::PostgresError(value) => Self::PgError(value.to_string()),
         }
     }
 }
-
-#[derive(Database)]
-#[database("psql_gtfs")]
-struct Gtfs(deadpool_postgres::Pool);
 
 pub struct CORS;
 
@@ -85,16 +71,14 @@ fn index() -> &'static str {
 }
 
 #[get("/api/stops")]
-async fn stops(mut db: Connection<Gtfs>) -> Result<Json, Error> {
-    let client = db.client();
+async fn stops(gtfs_data: &State<Gtfs>) -> Result<Json, Error> {
     Ok(Json(
-        serde_json::to_string(&get_stops(client).await?).map_err(|err| Error::JsonError(()))?,
+        serde_json::to_string(&get_stops(gtfs_data).await).map_err(|err| Error::JsonError(()))?,
     ))
 }
 
 #[get("/api/tiles/<stop_id>/<hour>/<day>/<zoom>/<x>/<y>/tile.png")]
 async fn tiles(
-    mut db: Connection<Gtfs>,
     stop_id: &str,
     hour: u32,
     day: &str,
@@ -102,8 +86,11 @@ async fn tiles(
     x: u32,
     y: u32,
     lookup_table_cache_guard: &State<RwLock<StopMapCache>>,
+    gtfs_data: &State<Gtfs>,
 ) -> Option<PngImage> {
-    use image::ImageOutputFormat::Png;
+    return None;
+
+    use image::ImageFormat::Png;
 
     let day = day.parse::<Day>().ok()?;
 
@@ -119,7 +106,7 @@ async fn tiles(
         },
     ) {
         Some(lookup_table) => {
-            let tile = generate_heatmap_tile(zoom, x, y, db.client(), lookup_table).await;
+            let tile = generate_heatmap_tile(zoom, x, y, &gtfs_data, lookup_table).await;
             let mut writer = Cursor::new(Vec::new());
             tile.write_to(&mut writer, Png).ok()?;
             Some(PngImage(writer.into_inner()))
@@ -134,11 +121,11 @@ async fn tiles(
                     stop_id: stop_id.to_string(),
                     time_to: 0,
                 },
-                db.client(),
+                &gtfs_data,
             );
 
             let tile =
-                generate_heatmap_tile(zoom, x, y, db.client(), lookup_table_cache.get()).await;
+                generate_heatmap_tile(zoom, x, y, &gtfs_data, lookup_table_cache.get()).await;
             let mut writer = Cursor::new(Vec::new());
             tile.write_to(&mut writer, Png).ok()?;
             Some(PngImage(writer.into_inner()))
@@ -149,10 +136,11 @@ async fn tiles(
 #[launch]
 fn rocket() -> _ {
     let stop_map_cache = RwLock::new(StopMapCache::new());
+    let gtfs_data = Gtfs::from_path("data/").expect("GTFS data should exsist in \"data/\" folder");
 
     rocket::build()
         .attach(CORS)
         .manage(stop_map_cache)
-        .attach(Gtfs::init())
+        .manage(gtfs_data)
         .mount("/", routes![index, stops, tiles])
 }

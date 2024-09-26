@@ -1,4 +1,4 @@
-use deadpool_postgres::tokio_postgres::Client;
+use gtfs_structures::Gtfs;
 use image::{GrayAlphaImage, LumaA};
 
 use crate::{
@@ -40,15 +40,15 @@ impl StopCache {
             .get(cache_y as usize)
             .unwrap_or_else(|| panic!("{:#?}", self.stops.len()))
     }
-    async fn new(tile: TileNumbers, connection: &Client, search_box_distance: &f64) -> StopCache {
+    async fn new(tile: TileNumbers, gtfs_data: &Gtfs, search_box_distance: &f64) -> StopCache {
         StopCache {
-            stops: StopCache::gen_stops(&tile, connection, search_box_distance).await,
+            stops: StopCache::gen_stops(&tile, gtfs_data, search_box_distance).await,
             tile,
         }
     }
     async fn gen_stops(
         tile: &TileNumbers,
-        connection: &Client,
+        gtfs_data: &Gtfs,
         search_box_distance: &f64,
     ) -> StopCacheArray {
         let mut stops: StopCacheArray = StopCacheArray::new();
@@ -63,7 +63,7 @@ impl StopCache {
             for y in 0..(TILE_SIZE / CACHE_DIVIDER) {
                 row.push(
                     get_nearby_stops(
-                        &connection,
+                        &gtfs_data,
                         &TileNumbers::get_pixel_coordinates(
                             &tile,
                             x * 16 + CACHE_DIVIDER / 2,
@@ -85,7 +85,7 @@ pub async fn generate_heatmap_tile(
     zoom: u32,
     tile_x: u32,
     tile_y: u32,
-    connection: &Client,
+    connection: &Gtfs,
     stop_time_lookuptable: &TimeLookupTable,
 ) -> GrayAlphaImage {
     let mut image = GrayAlphaImage::new(TILE_SIZE, TILE_SIZE);

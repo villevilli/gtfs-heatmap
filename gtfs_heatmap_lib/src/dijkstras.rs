@@ -1,12 +1,6 @@
 #![allow(unused)]
 
-use deadpool_postgres::tokio_postgres::Client;
-use petgraph::{
-    algo::dijkstra,
-    graph::Node,
-    graphmap::{self, GraphMap},
-    Directed, Graph, Undirected,
-};
+use gtfs_structures::Gtfs;
 
 use crate::{
     get_next_stop, get_next_stop_sync, get_next_trips_by_time,
@@ -61,11 +55,7 @@ impl From<StopTrip> for StopNode {
     }
 }
 
-async fn gen_times(
-    daytime: &DayTime,
-    start_node: &StopNode,
-    connection: &Client,
-) -> TimeLookupTable {
+async fn gen_times(daytime: &DayTime, start_node: &StopNode, gtfs_data: &Gtfs) -> TimeLookupTable {
     let mut graph: BTreeMap<String, u32> = BTreeMap::new();
     let mut lookuptable = HashMap::new();
 
@@ -79,7 +69,7 @@ async fn gen_times(
             continue;
         }
 
-        if let Some(stops) = get_next_nodes(&stop_id, &time_to, connection, &daytime).await {
+        if let Some(stops) = get_next_nodes(&stop_id, &time_to, gtfs_data, &daytime).await {
             for stop in stops {
                 graph.insert(stop.stop_id, stop.time_to);
             }
@@ -94,21 +84,21 @@ async fn gen_times(
 async fn get_next_nodes(
     stop_id: &String,
     time_to: &u32,
-    connection: &Client,
+    gtfs_data: &Gtfs,
     daytime: &DayTime,
 ) -> Option<Vec<StopNode>> {
     let next_trips = get_next_trips_by_time(
         daytime.time.as_seconds() + time_to,
         &daytime.day,
         stop_id,
-        connection,
+        gtfs_data,
     )
     .await
     .unwrap();
 
     let mut temp: Vec<StopNode> = next_trips
         .iter()
-        .filter_map(|trip| get_next_stop_sync(&trip.trip_id, &trip.stop_sequence, connection).ok())
+        .filter_map(|trip| get_next_stop_sync(&trip.trip_id, &trip.stop_sequence, gtfs_data).ok())
         .map(|x| x.into())
         .map(|mut x: StopNode| {
             x.time_to = x.time_to - daytime.time.as_seconds();
@@ -161,10 +151,10 @@ impl StopMapCache {
         &mut self,
         daytime: DayTime,
         start_node: StopNode,
-        connection: &Client,
+        gtfs_data: &Gtfs,
     ) {
         async {
-            self.lookup_table = gen_times(&daytime, &start_node, connection).await;
+            self.lookup_table = gen_times(&daytime, &start_node, gtfs_data).await;
             self.daytime = daytime;
             self.start_node = start_node;
         };

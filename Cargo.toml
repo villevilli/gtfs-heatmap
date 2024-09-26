@@ -14,7 +14,7 @@ serde_json = "1.0"
 rocket = "0.5"
 gtfs_heatmap_lib = {path = "gtfs_heatmap_lib"}
 postgres = "0.19.7"
-image = "0.24.8"
+image = "0.25"
 
 [dependencies.rocket_db_pools]
 version = "0.1.0"

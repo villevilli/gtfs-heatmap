@@ -1,10 +1,8 @@
 use std::f64::{self, consts::PI};
 
-use serde::{Deserialize, Serialize};
-
 const EARTH_RADIUS: f64 = 6_317_000.0;
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct Coordinates {
     pub latitude: f64,
     pub longitude: f64,
@@ -43,25 +41,6 @@ impl Coordinates {
         return EARTH_RADIUS * c;
     }
 }
-
-// pub struct TilePixel {
-//     x: u32,
-//     y: u32,
-//     tile: TileNumbers,
-// }
-
-// impl TilePixel {
-//     pub fn get_pixel_coordinates(&self) -> Coordinates {
-//         let n: f64 = 2_u32.pow(self.tile.zoom) as f64;
-
-//         Coordinates {
-//             latitude: ((self.tile.x as f64) + ((self.x as f64) / 256.0)) / n * 360.0 - 180.0,
-//             longitude: f64::atan(f64::sinh(
-//                 PI * (1.0 - 2.0 * ((self.tile.y as f64) + self.y as f64 / 256.0)),
-//             )),
-//         }
-//     }
-// }
 
 #[derive(Debug)]
 pub struct TileNumbers {

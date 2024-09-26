@@ -39,11 +39,13 @@
 
         let stops = await (await response).json();
 
+        console.log(stops);
+
         let stopMarkers: StopMarker[] = [];
 
         for (const stop of stops) {
             let currentMarker = new StopMarker(
-                latLng(stop.coordinates.latitude, stop.coordinates.longitude),
+                latLng(parseFloat(stop.stop_lat), parseFloat(stop.stop_lon)),
                 normalStyle,
                 { stop_id: stop.stop_id },
             ).addTo(map);
