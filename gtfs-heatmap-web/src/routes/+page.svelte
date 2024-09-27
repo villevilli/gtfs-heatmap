@@ -21,9 +21,11 @@
 
     const focusedStyle: CircleMarkerOptions = {
         color: "#ff9532",
+        radius: 10,
     };
     const normalStyle: CircleMarkerOptions = {
         color: "#3388ff",
+        radius: 7,
     };
 
     onMount(async () => {
@@ -44,6 +46,7 @@
         let stopMarkers: StopMarker[] = [];
 
         for (const stop of stops) {
+            console.log(stop);
             let currentMarker = new StopMarker(
                 latLng(parseFloat(stop.stop_lat), parseFloat(stop.stop_lon)),
                 normalStyle,

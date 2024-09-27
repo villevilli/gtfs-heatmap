@@ -10,6 +10,7 @@ use std::sync::Arc;
 use coords::Coordinates;
 use futures::executor;
 pub use gtfs_structures::Gtfs;
+use gtfs_structures::{Stop, StopTime};
 use gtfs_types::{seconds_to_hhmmss, Day, StopTrip};
 
 #[derive(Debug)]
@@ -52,11 +53,33 @@ pub async fn get_next_stop(
     todo!();
 }
 
-pub async fn get_next_trips_by_time(
+pub fn get_next_stops_by_time<'a>(
     time: u32,
     day: &Day,
     stop_id: &String,
-    gtfs_data: &Gtfs,
-) -> Result<Vec<StopTrip>, Error> {
-    todo!();
+    gtfs_data: &'a Gtfs,
+) -> Vec<&'a StopTime> {
+    gtfs_data
+        .trips
+        .values()
+        .map(|trip| {
+            trip.stop_times.iter().filter(|stop_time| {
+                if &stop_time.stop.id == stop_id {
+                    true
+                } else {
+                    false
+                }
+            })
+        })
+        .flatten()
+        .collect()
+}
+
+#[test]
+fn test_next_stops() {
+    let gtfs_data = Gtfs::new("../data/").expect("Missing gtfs data for test");
+
+    let next_stops = get_next_stops_by_time(0, &Day::Monday, &"2111228".to_string(), &gtfs_data);
+
+    dbg!(next_stops);
 }

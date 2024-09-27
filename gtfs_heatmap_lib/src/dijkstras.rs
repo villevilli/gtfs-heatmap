@@ -3,11 +3,12 @@
 use gtfs_structures::Gtfs;
 
 use crate::{
-    get_next_stop, get_next_stop_sync, get_next_trips_by_time,
+    get_next_stop, get_next_stop_sync, get_next_stops_by_time,
     gtfs_types::{self, Day, DayTime, Hour, Stop, StopTrip},
 };
 use std::{
     collections::{BTreeMap, BinaryHeap, HashMap},
+    hint::unreachable_unchecked,
     rc::Rc,
 };
 
@@ -87,14 +88,15 @@ async fn get_next_nodes(
     gtfs_data: &Gtfs,
     daytime: &DayTime,
 ) -> Option<Vec<StopNode>> {
-    let next_trips = get_next_trips_by_time(
+    let next_trips = get_next_stops_by_time(
         daytime.time.as_seconds() + time_to,
         &daytime.day,
         stop_id,
         gtfs_data,
-    )
-    .await
-    .unwrap();
+    );
+
+    panic!();
+    /*
 
     let mut temp: Vec<StopNode> = next_trips
         .iter()
@@ -108,6 +110,7 @@ async fn get_next_nodes(
 
     temp.dedup_by(|a, b| a.stop_id == b.stop_id);
     Some(temp)
+    */
 }
 
 #[derive(Debug)]
