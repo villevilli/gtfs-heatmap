@@ -1,5 +1,5 @@
 use gtfs_structures::Gtfs;
-use image::{GrayAlphaImage, LumaA};
+//use image::{GrayAlphaImage, LumaA};
 
 use crate::{
     coords::{Coordinates, TileNumbers},
@@ -80,7 +80,7 @@ impl StopCache {
         stops
     }
 }
-
+/*
 pub async fn generate_heatmap_tile(
     zoom: u32,
     tile_x: u32,
@@ -134,7 +134,7 @@ pub async fn generate_heatmap_tile(
 
     image
 }
-
+ */
 fn get_pixel_brightenss(
     x: u32,
     y: u32,

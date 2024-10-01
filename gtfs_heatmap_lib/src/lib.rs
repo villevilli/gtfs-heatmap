@@ -2,6 +2,7 @@
 
 pub mod coords;
 pub mod dijkstras;
+pub mod gtfs_graph;
 pub mod gtfs_types;
 pub mod heatmap;
 
@@ -16,6 +17,13 @@ use gtfs_types::{seconds_to_hhmmss, Day, StopTrip};
 #[derive(Debug)]
 pub enum Error {
     ParseError,
+    GtfsParseError(gtfs_structures::Error),
+}
+
+impl From<gtfs_structures::Error> for Error {
+    fn from(value: gtfs_structures::Error) -> Self {
+        Self::GtfsParseError(value)
+    }
 }
 
 pub async fn get_stops(gtfs_data: &Gtfs) -> Vec<&Arc<gtfs_structures::Stop>> {
@@ -75,6 +83,7 @@ pub fn get_next_stops_by_time<'a>(
         .collect()
 }
 
+/*
 #[test]
 fn test_next_stops() {
     let gtfs_data = Gtfs::new("../data/").expect("Missing gtfs data for test");
@@ -83,3 +92,4 @@ fn test_next_stops() {
 
     dbg!(next_stops);
 }
+*/
