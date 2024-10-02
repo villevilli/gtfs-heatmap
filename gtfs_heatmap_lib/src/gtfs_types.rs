@@ -87,6 +87,43 @@ impl fmt::Display for Day {
     }
 }
 
+pub struct IntOutOfBounds;
+
+impl TryFrom<u8> for Day {
+    type Error = IntOutOfBounds;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        use Day::*;
+        let day = match value {
+            0 => Monday,
+            1 => Tuesday,
+            2 => Wednesday,
+            3 => Thursday,
+            4 => Friday,
+            5 => Saturday,
+            6 => Sunday,
+            _ => return Err(IntOutOfBounds),
+        };
+
+        Ok(day)
+    }
+}
+
+impl Into<u8> for Day {
+    fn into(self) -> u8 {
+        use Day::*;
+        match self {
+            Monday => 0,
+            Tuesday => 1,
+            Wednesday => 2,
+            Thursday => 3,
+            Friday => 4,
+            Saturday => 5,
+            Sunday => 6,
+        }
+    }
+}
+
 pub struct OverflowError;
 
 #[derive(Hash, PartialEq, Eq, Default, Clone, Copy, Debug)]

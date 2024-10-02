@@ -1,13 +1,10 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     sync::{Arc, PoisonError, RwLock},
 };
 
 use gtfs_structures::RawGtfs;
-use time::{
-    macros::{date, datetime, time},
-    Date, Duration, OffsetDateTime, Time,
-};
+use time::{macros::time, Date, Duration, OffsetDateTime};
 
 use crate::coords::Coordinates;
 
@@ -22,15 +19,19 @@ pub enum Error {
 
 ///Poison Errors contents are deleted here, couldn't be fucked to add type parameter
 impl<T> From<PoisonError<T>> for Error {
-    fn from(value: PoisonError<T>) -> Self {
+    fn from(_value: PoisonError<T>) -> Self {
         Self::StopPoisonError
     }
 }
 
-struct Stop {
-    id: String,
-    coordinates: Coordinates,
+pub struct Stop {
+    pub id: String,
+    pub coordinates: Coordinates,
     edges: Vec<Arc<Edge>>,
+}
+
+struct ValidDays {
+    monday: bool,
 }
 
 struct Edge {
@@ -40,6 +41,7 @@ struct Edge {
     departure_time: u32,
     arrival_time: u32,
     connected_stop: Arc<RwLock<Stop>>,
+    weekdays: [bool; 7],
 }
 
 impl Edge {
@@ -138,6 +140,11 @@ impl GtfsGraph {
         self.edges.push(edge);
 
         Ok(())
+    }
+
+    ///Gets stop by its stop_id
+    pub fn get_stop(&self, id: &str) -> Option<Arc<RwLock<Stop>>> {
+        Some(self.stops.get(id)?.clone())
     }
 }
 
