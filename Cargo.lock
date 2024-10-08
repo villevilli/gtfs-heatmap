@@ -883,6 +883,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "gtfs-structures",
+ "thiserror",
  "time",
 ]
 

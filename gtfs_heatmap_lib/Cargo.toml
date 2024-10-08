@@ -11,3 +11,4 @@ edition = "2021"
 time = {version = "0.3.31", features = ["parsing", "formatting", "macros"]}
 futures = "0.3.30"
 gtfs-structures = "0.41"
+thiserror = "1.0.64"
