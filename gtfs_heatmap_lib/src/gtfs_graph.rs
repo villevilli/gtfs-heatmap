@@ -3,10 +3,11 @@ use std::{
     sync::{Arc, PoisonError, RwLock},
 };
 
+use futures::select;
 use gtfs_structures::RawGtfs;
 use time::{macros::time, Date, Duration, OffsetDateTime};
 
-use crate::coords::Coordinates;
+use crate::{coords::Coordinates, gtfs_types::Day};
 
 const SECONDS_IN_DAY: u32 = 86_400;
 
@@ -30,10 +31,6 @@ pub struct Stop {
     edges: Vec<Arc<Edge>>,
 }
 
-struct ValidDays {
-    monday: bool,
-}
-
 struct Edge {
     //Departure and arrival time are not directly from a single stop_time.
     //departure time is from former stop_time and arrival time from latter stop_time
@@ -46,10 +43,27 @@ struct Edge {
 
 impl Edge {
     pub fn departure_datetime(&self, current_date: Date) -> OffsetDateTime {
-        Self::to_datetime(&self.arrival_time, current_date)
+        Self::to_datetime(&self.arrival_time, self.get_next_valid_date(current_date))
     }
     pub fn arrival_datetime(&self, current_date: Date) -> OffsetDateTime {
-        Self::to_datetime(&self.departure_time, current_date)
+        Self::to_datetime(&self.departure_time, self.get_next_valid_date(current_date))
+    }
+
+    pub fn set_day_validity(&mut self, day: Day, is_valid: bool) {
+        self.weekdays[day as usize] = is_valid;
+    }
+
+    fn get_next_valid_date(&self, date: Date) -> Date {
+        let current_day = date.weekday();
+
+        let mut newdays = self.weekdays;
+        newdays.rotate_right(current_day.number_days_from_monday() as usize);
+        date + Duration::days(
+            newdays
+                .iter()
+                .position(|x| *x)
+                .expect("Edge should have a valid day.") as i64,
+        )
     }
 
     fn to_datetime(time: &u32, date: Date) -> OffsetDateTime {
@@ -110,13 +124,15 @@ impl GtfsGraph {
 
         Ok(())
     }
-
+    ///Connects two stops(nodes)
+    ///Valid days is an array of days for which the edge is available. First index is monday.
     pub fn connect_stops(
         &mut self,
         departure_stop_id: String,
         departure_time: u32,
         arrival_stop_id: String,
         arrival_time: u32,
+        weekdays: [bool; 7],
     ) -> Result<(), Error> {
         let departure_stop = self
             .stops
@@ -133,6 +149,7 @@ impl GtfsGraph {
             departure_time,
             arrival_time,
             connected_stop: arrival_stop,
+            weekdays,
         });
 
         departure_stop.write()?.edges.push(edge.clone());
@@ -145,6 +162,20 @@ impl GtfsGraph {
     ///Gets stop by its stop_id
     pub fn get_stop(&self, id: &str) -> Option<Arc<RwLock<Stop>>> {
         Some(self.stops.get(id)?.clone())
+    }
+
+    ///Calls insert on the underlying stops hashmap
+    ///If the map did not have this key present, None is returned.
+    ///If the map did have this key present, the value is updated, and the old value is returned. The key is not updated, though; this matters for types that can be == without being identical.
+    pub fn new_stop(&mut self, id: &str, coordinates: Coordinates) -> Option<Arc<RwLock<Stop>>> {
+        self.stops.insert(
+            id.to_string(),
+            Arc::new(RwLock::new(Stop {
+                id: id.to_string(),
+                coordinates,
+                edges: Vec::new(),
+            })),
+        )
     }
 }
 

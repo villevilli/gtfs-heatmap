@@ -109,6 +109,7 @@ impl TryFrom<u8> for Day {
     }
 }
 
+/*
 impl Into<u8> for Day {
     fn into(self) -> u8 {
         use Day::*;
@@ -123,6 +124,8 @@ impl Into<u8> for Day {
         }
     }
 }
+
+*/
 
 pub struct OverflowError;
 
