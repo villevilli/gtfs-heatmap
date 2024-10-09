@@ -13,17 +13,12 @@ use futures::executor;
 pub use gtfs_structures::Gtfs;
 use gtfs_structures::{Stop, StopTime};
 use gtfs_types::{seconds_to_hhmmss, Day, StopTrip};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
+    #[error("Failed to parse")]
     ParseError,
-    GtfsParseError(gtfs_structures::Error),
-}
-
-impl From<gtfs_structures::Error> for Error {
-    fn from(value: gtfs_structures::Error) -> Self {
-        Self::GtfsParseError(value)
-    }
 }
 
 pub async fn get_stops(gtfs_data: &Gtfs) -> Vec<&Arc<gtfs_structures::Stop>> {

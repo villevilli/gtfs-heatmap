@@ -1,11 +1,9 @@
+use gtfs_heatmap_lib::gtfs_graph::GtfsGraph;
 use rocket::response::Responder;
 use rocket::tokio::sync::RwLock;
-use std::io::Cursor;
 
-use gtfs_heatmap_lib::dijkstras::{StopMapCache, StopNode};
-use gtfs_heatmap_lib::gtfs_types::{Day, DayTime, Hour};
-use gtfs_heatmap_lib::heatmap::generate_heatmap_tile;
-use gtfs_heatmap_lib::{get_stops, Gtfs};
+use gtfs_heatmap_lib::dijkstras::StopMapCache;
+use gtfs_heatmap_lib::Gtfs;
 
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
@@ -14,24 +12,18 @@ use rocket::{Request, Response, State};
 #[macro_use]
 extern crate rocket;
 
-const DB_CONNECTION: &'static str = "host=localhost user=postgres";
-
 #[derive(Responder)]
 #[response(content_type = "text/plain")]
 enum Error {
     #[response(status = 500, content_type = "text/plain")]
-    PgError(String),
-    #[response(status = 500)]
-    GtfsErr(()),
-    #[response(status = 500)]
-    JsonError(()),
+    GtfsErr(String),
+    #[response(status = 500, content_type = "text/plain")]
+    JsonError(String),
 }
 
 impl From<gtfs_heatmap_lib::Error> for Error {
     fn from(value: gtfs_heatmap_lib::Error) -> Self {
-        match value {
-            gtfs_heatmap_lib::Error::ParseError => Self::GtfsErr(()),
-        }
+        Self::GtfsErr(value.to_string())
     }
 }
 
@@ -71,12 +63,14 @@ fn index() -> &'static str {
 }
 
 #[get("/api/stops")]
-async fn stops(gtfs_data: &State<Gtfs>) -> Result<Json, Error> {
+async fn stops(gtfs_data: &State<GtfsGraph>) -> Result<Json, Error> {
     Ok(Json(
-        serde_json::to_string(&get_stops(gtfs_data).await).map_err(|err| Error::JsonError(()))?,
+        serde_json::to_string(&gtfs_data.get_stops())
+            .map_err(|err| Error::JsonError(err.to_string()))?,
     ))
 }
 
+#[allow(unused_variables)]
 #[get("/api/tiles/<stop_id>/<hour>/<day>/<zoom>/<x>/<y>/tile.png")]
 async fn tiles(
     stop_id: &str,
@@ -89,7 +83,7 @@ async fn tiles(
     gtfs_data: &State<Gtfs>,
 ) -> Option<PngImage> {
     return None;
-
+    /*
     use image::ImageFormat::Png;
 
     let day = day.parse::<Day>().ok()?;
@@ -131,12 +125,16 @@ async fn tiles(
             Some(PngImage(writer.into_inner()))
         }
     }
+    */
 }
 
 #[launch]
 fn rocket() -> _ {
     let stop_map_cache = RwLock::new(StopMapCache::new());
-    let gtfs_data = Gtfs::from_path("data/").expect("GTFS data should exsist in \"data/\" folder");
+    let gtfs_data: GtfsGraph = Gtfs::from_path("data/")
+        .expect("GTFS data should exsist in \"data/\" folder")
+        .try_into()
+        .expect("Should just work??");
 
     rocket::build()
         .attach(CORS)

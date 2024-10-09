@@ -852,7 +852,6 @@ dependencies = [
  "postgres",
  "rocket",
  "rocket_db_pools",
- "serde",
  "serde_json",
 ]
 
@@ -883,6 +882,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "gtfs-structures",
+ "serde",
  "thiserror",
  "time",
 ]

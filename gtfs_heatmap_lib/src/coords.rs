@@ -1,8 +1,10 @@
 use std::f64::{self, consts::PI};
 
+use serde::Serialize;
+
 const EARTH_RADIUS: f64 = 6_317_000.0;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct Coordinates {
     pub latitude: f64,
     pub longitude: f64,
