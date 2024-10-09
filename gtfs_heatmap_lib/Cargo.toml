@@ -12,4 +12,4 @@ time = {version = "0.3.31", features = ["parsing", "formatting", "macros"]}
 futures = "0.3.30"
 gtfs-structures = "0.41"
 thiserror = "1.0.64"
-serde = "1.0.210"
+serde = {version = "1.0.210", features = ["rc","derive"]}

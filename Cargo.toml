@@ -14,11 +14,7 @@ rocket = "0.5"
 gtfs_heatmap_lib = {path = "gtfs_heatmap_lib"}
 postgres = "0.19.7"
 image = "0.25"
-
-[dependencies.rocket_db_pools]
-version = "0.1.0"
-features = ["deadpool_postgres"]
-
+time = {version = "0.3.31", features = ["serde"]}
 
 [workspace]
 members = [

@@ -1,7 +1,6 @@
 #![feature(async_closure)]
 
 pub mod coords;
-pub mod dijkstras;
 pub mod gtfs_graph;
 pub mod gtfs_types;
 pub mod heatmap;

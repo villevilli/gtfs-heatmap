@@ -1,8 +1,7 @@
 use gtfs_heatmap_lib::gtfs_graph::GtfsGraph;
 use rocket::response::Responder;
-use rocket::tokio::sync::RwLock;
+use rocket::time::OffsetDateTime;
 
-use gtfs_heatmap_lib::dijkstras::StopMapCache;
 use gtfs_heatmap_lib::Gtfs;
 
 use rocket::fairing::{Fairing, Info, Kind};
@@ -27,6 +26,17 @@ impl From<gtfs_heatmap_lib::Error> for Error {
     }
 }
 
+impl From<serde_json::Error> for Error {
+    fn from(value: serde_json::Error) -> Self {
+        Self::JsonError(value.to_string())
+    }
+}
+
+impl From<gtfs_heatmap_lib::gtfs_graph::Error> for Error {
+    fn from(value: gtfs_heatmap_lib::gtfs_graph::Error) -> Self {
+        Self::GtfsErr(value.to_string())
+    }
+}
 pub struct CORS;
 
 #[derive(Responder)]
@@ -64,10 +74,21 @@ fn index() -> &'static str {
 
 #[get("/api/stops")]
 async fn stops(gtfs_data: &State<GtfsGraph>) -> Result<Json, Error> {
-    Ok(Json(
-        serde_json::to_string(&gtfs_data.get_stops())
-            .map_err(|err| Error::JsonError(err.to_string()))?,
-    ))
+    Ok(Json(serde_json::to_string(&gtfs_data.get_stops())?))
+}
+
+#[get("/api/stops/<stop_id>/dijkstras/<timestamp>")]
+async fn dijkstras(
+    stop_id: &str,
+    timestamp: i64,
+    gtfs_data: &State<GtfsGraph>,
+) -> Result<Json, Error> {
+    let times = gtfs_data.dijkstras(
+        stop_id,
+        OffsetDateTime::from_unix_timestamp(timestamp).expect("lol"),
+    )?;
+
+    Ok(Json(serde_json::to_string(&times)?))
 }
 
 #[allow(unused_variables)]
@@ -79,8 +100,7 @@ async fn tiles(
     zoom: u32,
     x: u32,
     y: u32,
-    lookup_table_cache_guard: &State<RwLock<StopMapCache>>,
-    gtfs_data: &State<Gtfs>,
+    gtfs_data: &State<GtfsGraph>,
 ) -> Option<PngImage> {
     return None;
     /*
@@ -128,9 +148,14 @@ async fn tiles(
     */
 }
 
+/*
+#[get("/api/graph")]
+fn get_graph(gtfs_data: &State<GtfsGraph>) -> Result<Json, Error> {
+    Ok(Json(gtfs_data.serialize(Json)?))
+}
+*/
 #[launch]
 fn rocket() -> _ {
-    let stop_map_cache = RwLock::new(StopMapCache::new());
     let gtfs_data: GtfsGraph = Gtfs::from_path("data/")
         .expect("GTFS data should exsist in \"data/\" folder")
         .try_into()
@@ -138,7 +163,6 @@ fn rocket() -> _ {
 
     rocket::build()
         .attach(CORS)
-        .manage(stop_map_cache)
         .manage(gtfs_data)
-        .mount("/", routes![index, stops, tiles])
+        .mount("/", routes![index, stops, tiles, dijkstras])
 }

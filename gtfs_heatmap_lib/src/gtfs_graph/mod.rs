@@ -1,6 +1,8 @@
 #![allow(unused)]
+pub mod dijkstras;
 pub mod parser;
 
+use core::error;
 use std::{
     collections::HashMap,
     sync::{Arc, PoisonError, RwLock},
@@ -30,6 +32,8 @@ pub enum Error {
     MissingDepartureStop(String),
     #[error("Tried connecting edge to non existing arrival node {0}")]
     MissingArrivalStop(String),
+    #[error("Couldn't find node with id: {0}")]
+    MissingStop(String),
     #[error("The stops location type is not Stop")]
     LocationTypeNotStop,
     #[error("Internal RwLock is poisoned")]
@@ -39,8 +43,9 @@ pub enum Error {
 #[derive(Serialize)]
 pub struct Stop {
     pub id: String,
+    #[serde(flatten)]
     pub coordinates: Coordinates,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     edges: Vec<Arc<Edge>>,
 }
 
@@ -68,11 +73,13 @@ impl TryFrom<gtfs_structures::Stop> for Stop {
     }
 }
 
+#[derive(Serialize)]
 struct Edge {
     //Departure and arrival time are not directly from a single stop_time.
     //departure time is from former stop_time and arrival time from latter stop_time
     //used in conjunction with the services date from calendar.
     departure_time: u32,
+    #[serde(skip)]
     connected_stop: Arc<RwLock<Stop>>,
     weekdays: [bool; 7],
 }
@@ -110,6 +117,7 @@ impl Edge {
 }
 
 /// Stops are stored as HashMap with stop_id as Key.
+#[derive(Serialize)]
 pub struct GtfsGraph {
     stops: HashMap<String, Arc<RwLock<Stop>>>,
     edges: Vec<Arc<Edge>>,
@@ -207,4 +215,13 @@ fn to_datetime_past_midnight() {
     let datetime = Edge::to_datetime(&time, date);
 
     assert_eq!(datetime, datetime!(2003 - 5 - 17 0:02 UTC))
+}
+
+#[test]
+fn test_get_stops() {
+    let gtfs = gtfs_structures::Gtfs::from_path("../data").unwrap();
+
+    let gtfs_graph: GtfsGraph = gtfs.try_into().unwrap();
+
+    gtfs_graph.get_stops();
 }

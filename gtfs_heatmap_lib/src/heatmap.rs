@@ -3,7 +3,6 @@ use gtfs_structures::Gtfs;
 
 use crate::{
     coords::{Coordinates, TileNumbers},
-    dijkstras::TimeLookupTable,
     get_nearby_stops,
     gtfs_types::Stop,
 };
@@ -135,12 +134,13 @@ pub async fn generate_heatmap_tile(
     image
 }
  */
+
+/*
 fn get_pixel_brightenss(
     x: u32,
     y: u32,
     nearby_stops: &Vec<Stop>,
     current_tile: TileNumbers,
-    time_lookup_table: &TimeLookupTable,
 ) -> u8 {
     let time: f64 = nearby_stops.iter().fold(f64::INFINITY, |acc, stop| -> f64 {
         let mut distance = stop
@@ -162,3 +162,4 @@ fn get_pixel_brightenss(
 
     (time / 10.0) as u8
 }
+ */

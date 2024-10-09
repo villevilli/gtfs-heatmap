@@ -48,7 +48,7 @@
         for (const stop of stops) {
             console.log(stop);
             let currentMarker = new StopMarker(
-                latLng(parseFloat(stop.stop_lat), parseFloat(stop.stop_lon)),
+                latLng(parseFloat(stop.latitude), parseFloat(stop.longitude)),
                 normalStyle,
                 { stop_id: stop.stop_id },
             ).addTo(map);
