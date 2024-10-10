@@ -1,7 +1,7 @@
 import { CircleMarker, LatLng, type CircleMarkerOptions } from "leaflet";
 
 export interface StopMarkerData {
-    stop_id: String
+    stop_id: string
 }
 
 export class StopMarker extends CircleMarker {

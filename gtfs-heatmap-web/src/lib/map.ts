@@ -2,8 +2,6 @@ import leaflet, { Map, type LatLngExpression, CircleMarker } from "leaflet";
 
 let map;
 
-const initialCoordinates = [60.2, 25.0];
-
 export function initOsmMap(element: HTMLElement, initialCoordinates: LatLngExpression) {
     console.log(element)
     let map = leaflet.map(element, {
@@ -43,7 +41,7 @@ export function addStopMarker(stop: { stop_lat: number; stop_lon: number; }, map
 import { LatLng, type CircleMarkerOptions } from "leaflet";
 
 interface StopMarkerData {
-    stop_id: String
+    stop_id: string
 }
 
 class StopMarker extends CircleMarker {
