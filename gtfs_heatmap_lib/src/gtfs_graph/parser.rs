@@ -13,6 +13,7 @@ impl TryFrom<Gtfs> for GtfsGraph {
 
     fn try_from(mut gtfs: Gtfs) -> Result<Self, Self::Error> {
         let mut stops: HashMap<String, Arc<RwLock<Stop>>> = HashMap::new();
+        stops.reserve(gtfs.stops.len());
         for (id, stop) in gtfs.stops.drain() {
             if let Ok(stop) = Arc::unwrap_or_clone(stop).try_into() {
                 stops.insert(id, Arc::new(RwLock::new(stop)));
@@ -60,26 +61,4 @@ impl TryFrom<Gtfs> for GtfsGraph {
 
         Ok(graph)
     }
-}
-
-#[test]
-fn gtfs_to_graph() -> Result<(), Box<dyn error::Error>> {
-    let mut gtfs = gtfs_structures::Gtfs::from_path("../hsl.zip")?;
-
-    let mut stops: HashMap<String, Arc<RwLock<Stop>>> = HashMap::new();
-    for (id, stop) in gtfs.stops.drain() {
-        if let Ok(stop) = Arc::unwrap_or_clone(stop).try_into() {
-            stops.insert(id, Arc::new(RwLock::new(stop)));
-        }
-    }
-    Ok(())
-}
-
-#[test]
-fn parse_gtfs_to_graph() -> Result<(), Box<dyn error::Error>> {
-    let gtfs = gtfs_structures::Gtfs::from_path("../hsl.zip")?;
-
-    let _gtfs_graph: GtfsGraph = gtfs.try_into()?;
-
-    Ok(())
 }

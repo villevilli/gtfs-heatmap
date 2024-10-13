@@ -2,9 +2,13 @@
 pub mod dijkstras;
 pub mod parser;
 
+#[cfg(test)]
+mod tests;
+
 use core::error;
 use std::{
     collections::HashMap,
+    mem,
     sync::{Arc, PoisonError, RwLock},
 };
 
@@ -12,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use gtfs_structures::LocationType;
 use thiserror::Error;
-use time::{macros::*, Date, Duration, OffsetDateTime};
+use time::{macros::*, Date, Duration, OffsetDateTime, Weekday};
 
 use crate::{coords::Coordinates, gtfs_types::Day};
 
@@ -21,6 +25,36 @@ const SECONDS_IN_DAY: u32 = 86_400;
 impl<T> From<PoisonError<T>> for Error {
     fn from(_err: PoisonError<T>) -> Self {
         Self::Poison
+    }
+}
+
+#[repr(C)]
+#[derive(Serialize, Clone, Copy)]
+///## Safety
+///This must remain as 7 bools, otherwise undefined behaviour happens.
+///
+/// Must also remain as repr(C)
+pub struct ValidDays {
+    monday: bool,
+    tuesday: bool,
+    wednesday: bool,
+    thursday: bool,
+    friday: bool,
+    saturday: bool,
+    sunday: bool,
+}
+
+impl ValidDays {
+    fn is_valid(&self, day: Weekday) -> bool {
+        match day {
+            Weekday::Monday => self.monday,
+            Weekday::Tuesday => self.tuesday,
+            Weekday::Wednesday => self.wednesday,
+            Weekday::Thursday => self.thursday,
+            Weekday::Friday => self.friday,
+            Weekday::Saturday => self.saturday,
+            Weekday::Sunday => self.sunday,
+        }
     }
 }
 
@@ -81,21 +115,56 @@ struct Edge {
     departure_time: u32,
     #[serde(skip)]
     connected_stop: Arc<RwLock<Stop>>,
-    weekdays: [bool; 7],
+    weekdays: ValidDays,
+}
+
+impl From<[bool; 7]> for ValidDays {
+    ///SAFETY
+    /// This is safe, because ValidDays is repr(C) and contains 7 bools.
+    fn from(value: [bool; 7]) -> Self {
+        unsafe { mem::transmute(value) }
+    }
+}
+
+impl From<ValidDays> for [bool; 7] {
+    ///SAFETY
+    /// This is safe and sound, because ValidDays is repr(C) and contains 7 bools.
+    fn from(value: ValidDays) -> Self {
+        unsafe { mem::transmute(value) }
+    }
 }
 
 impl Edge {
-    pub fn departure_datetime(&self, current_date: Date) -> OffsetDateTime {
-        Self::to_datetime(&self.departure_time, self.get_next_valid_date(current_date))
+    pub fn departure_datetime(&self, current_date_time: OffsetDateTime) -> OffsetDateTime {
+        Self::to_datetime(
+            &self.departure_time,
+            match self.departure_time > SECONDS_IN_DAY
+                && self
+                    .weekdays
+                    .is_valid(current_date_time.date().previous_day().unwrap().weekday())
+            {
+                true => current_date_time.date().previous_day().unwrap(),
+                false => current_date_time.date(),
+            },
+        )
     }
-    pub fn set_day_validity(&mut self, day: Day, is_valid: bool) {
-        self.weekdays[day as usize] = is_valid;
+    pub fn set_day_validity(&mut self, day: Weekday, is_valid: bool) {
+        match day {
+            Weekday::Monday => self.weekdays.monday = is_valid,
+            Weekday::Tuesday => self.weekdays.tuesday = is_valid,
+            Weekday::Wednesday => self.weekdays.wednesday = is_valid,
+            Weekday::Thursday => self.weekdays.thursday = is_valid,
+            Weekday::Friday => self.weekdays.friday = is_valid,
+            Weekday::Saturday => self.weekdays.saturday = is_valid,
+            Weekday::Sunday => self.weekdays.sunday = is_valid,
+        }
     }
 
     fn get_next_valid_date(&self, date: Date) -> Date {
         let current_day = date.weekday();
 
-        let mut newdays = self.weekdays;
+        let mut newdays: [bool; 7] = self.weekdays.into();
+
         newdays.rotate_right(current_day.number_days_from_monday() as usize);
         date + Duration::days(
             newdays
@@ -105,6 +174,8 @@ impl Edge {
         )
     }
 
+    ///Sums a date and a possibly overflowing time.
+    ///Time is time of day as seconds, which can be over 24:00
     fn to_datetime(time: &u32, date: Date) -> OffsetDateTime {
         match time / SECONDS_IN_DAY {
             0 => OffsetDateTime::new_utc(date, time!(00:00:00)) + Duration::seconds(*time as i64),
@@ -177,7 +248,7 @@ impl GtfsGraph {
         let edge = Arc::new(Edge {
             departure_time,
             connected_stop: arrival_stop,
-            weekdays,
+            weekdays: weekdays.into(),
         });
 
         departure_stop.write()?.edges.push(edge.clone());
@@ -195,33 +266,4 @@ impl GtfsGraph {
     pub fn get_stops(&self) -> Vec<Arc<RwLock<Stop>>> {
         self.stops.values().map(|stop| stop.clone()).collect()
     }
-}
-
-#[test]
-fn to_datetime_midnight() {
-    let date = date!(2003 - 5 - 16);
-    let time = SECONDS_IN_DAY;
-
-    let datetime = Edge::to_datetime(&time, date);
-
-    assert_eq!(datetime, datetime!(2003 - 5 - 17 0:00 UTC));
-}
-
-#[test]
-fn to_datetime_past_midnight() {
-    let date = date!(2003 - 5 - 16);
-    let time = SECONDS_IN_DAY + 120;
-
-    let datetime = Edge::to_datetime(&time, date);
-
-    assert_eq!(datetime, datetime!(2003 - 5 - 17 0:02 UTC))
-}
-
-#[test]
-fn test_get_stops() {
-    let gtfs = gtfs_structures::Gtfs::from_path("../data").unwrap();
-
-    let gtfs_graph: GtfsGraph = gtfs.try_into().unwrap();
-
-    gtfs_graph.get_stops();
 }

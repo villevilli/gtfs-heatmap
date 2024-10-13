@@ -76,14 +76,3 @@ pub fn get_next_stops_by_time<'a>(
         .flatten()
         .collect()
 }
-
-/*
-#[test]
-fn test_next_stops() {
-    let gtfs_data = Gtfs::new("../data/").expect("Missing gtfs data for test");
-
-    let next_stops = get_next_stops_by_time(0, &Day::Monday, &"2111228".to_string(), &gtfs_data);
-
-    dbg!(next_stops);
-}
-*/

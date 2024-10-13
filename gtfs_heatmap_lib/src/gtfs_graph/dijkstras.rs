@@ -72,8 +72,7 @@ impl GtfsGraph {
             for edge in unvisited_edges {
                 let id = &edge.connected_stop.read()?.id;
 
-                let mut time =
-                    edge.departure_datetime((start_time + stop_with_duration.duration).date());
+                let mut time = edge.departure_datetime((start_time + stop_with_duration.duration));
 
                 if time < start_time + stop_with_duration.duration {
                     continue;
