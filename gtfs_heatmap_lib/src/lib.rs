@@ -3,7 +3,6 @@
 pub mod coords;
 pub mod gtfs_graph;
 pub mod gtfs_types;
-pub mod heatmap;
 
 use std::sync::Arc;
 

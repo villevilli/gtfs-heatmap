@@ -5,13 +5,17 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use serde::Serialize;
 use time::{Duration, OffsetDateTime};
 
 use super::{Error, GtfsGraph, Stop};
 
-struct StopWithDuration {
-    stop: Arc<RwLock<Stop>>,
-    duration: Duration,
+#[derive(Clone, Serialize)]
+#[serde(transparent)]
+pub struct StopWithDuration {
+    #[serde(skip)]
+    pub(crate) stop: Arc<RwLock<Stop>>,
+    pub(crate) duration: Duration,
 }
 
 //Ord implemented as reverse, so we get a min heap from rust BinaryHeap
@@ -44,9 +48,11 @@ impl GtfsGraph {
         &self,
         start_id: &str,
         start_time: OffsetDateTime,
-    ) -> Result<HashMap<String, Duration>, Error> {
+    ) -> Result<HashMap<String, StopWithDuration>, Error> {
         let mut queue: BinaryHeap<StopWithDuration> = BinaryHeap::new();
-        let mut times: HashMap<String, Duration> = HashMap::new();
+        let mut times: HashMap<String, StopWithDuration> = HashMap::new();
+
+        times.reserve(self.stops.len());
 
         queue.push(StopWithDuration {
             stop: self
@@ -98,9 +104,10 @@ impl GtfsGraph {
                 });
             }
 
-            times.insert(stop.id.clone(), stop_with_duration.duration);
+            times.insert(stop.id.clone(), stop_with_duration.clone());
         }
 
+        times.shrink_to_fit();
         Ok(times)
     }
 }

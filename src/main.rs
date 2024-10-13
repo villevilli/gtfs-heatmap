@@ -1,4 +1,9 @@
-use gtfs_heatmap_lib::gtfs_graph::GtfsGraph;
+use std::collections::HashMap;
+use std::io::Cursor;
+use std::sync::Mutex;
+
+use gtfs_heatmap_lib::gtfs_graph::dijkstras::StopWithDuration;
+use gtfs_heatmap_lib::gtfs_graph::{self, GtfsGraph};
 use rocket::response::Responder;
 use rocket::time::OffsetDateTime;
 
@@ -74,7 +79,8 @@ fn index() -> &'static str {
 
 #[get("/api/stops")]
 async fn stops(gtfs_data: &State<GtfsGraph>) -> Result<Json, Error> {
-    Ok(Json(serde_json::to_string(&gtfs_data.get_stops())?))
+    let stop_times = gtfs_data.get_stops();
+    Ok(Json(serde_json::to_string(&stop_times)?))
 }
 
 #[get("/api/stops/<stop_id>/dijkstras/<timestamp>")]
@@ -82,17 +88,22 @@ async fn dijkstras(
     stop_id: &str,
     timestamp: i64,
     gtfs_data: &State<GtfsGraph>,
+    stored_stop_times: &State<Mutex<HashMap<String, StopWithDuration>>>,
 ) -> Result<Json, Error> {
     let times = gtfs_data.dijkstras(
         stop_id,
         OffsetDateTime::from_unix_timestamp(timestamp).expect("lol"),
     )?;
 
+    let mut lock = stored_stop_times.lock().unwrap();
+
+    *lock = times.clone();
+
     Ok(Json(serde_json::to_string(&times)?))
 }
 
 #[allow(unused_variables)]
-#[get("/api/tiles/<stop_id>/<hour>/<day>/<zoom>/<x>/<y>/tile.png")]
+#[get("/api/tiles/<stop_id>/<hour>/<day>/<zoom>/<x>/<y>/tile.webp")]
 async fn tiles(
     stop_id: &str,
     hour: u32,
@@ -100,52 +111,18 @@ async fn tiles(
     zoom: u32,
     x: u32,
     y: u32,
-    gtfs_data: &State<GtfsGraph>,
+    gtfs_graph: &State<GtfsGraph>,
+    stop_time: &State<Mutex<HashMap<String, StopWithDuration>>>,
 ) -> Option<PngImage> {
-    return None;
-    /*
-    use image::ImageFormat::Png;
+    use image::ImageFormat::WebP;
 
-    let day = day.parse::<Day>().ok()?;
+    let guard: std::sync::MutexGuard<'_, HashMap<String, StopWithDuration>> =
+        stop_time.lock().ok()?;
 
-    let time = Hour::try_from(hour).ok()?;
-
-    let lookup_table_cache = lookup_table_cache_guard.read().await;
-
-    match lookup_table_cache.get_if_current(
-        DayTime { day, time },
-        StopNode {
-            stop_id: stop_id.to_string(),
-            time_to: 0,
-        },
-    ) {
-        Some(lookup_table) => {
-            let tile = generate_heatmap_tile(zoom, x, y, &gtfs_data, lookup_table).await;
-            let mut writer = Cursor::new(Vec::new());
-            tile.write_to(&mut writer, Png).ok()?;
-            Some(PngImage(writer.into_inner()))
-        }
-        None => {
-            drop(lookup_table_cache);
-            let mut lookup_table_cache = lookup_table_cache_guard.write().await;
-
-            lookup_table_cache.update_lookup_table(
-                DayTime { day, time },
-                StopNode {
-                    stop_id: stop_id.to_string(),
-                    time_to: 0,
-                },
-                &gtfs_data,
-            );
-
-            let tile =
-                generate_heatmap_tile(zoom, x, y, &gtfs_data, lookup_table_cache.get()).await;
-            let mut writer = Cursor::new(Vec::new());
-            tile.write_to(&mut writer, Png).ok()?;
-            Some(PngImage(writer.into_inner()))
-        }
-    }
-    */
+    let tile = gtfs_graph.generate_heatmap_tile(zoom, x, y, &guard);
+    let mut writer = Cursor::new(Vec::new());
+    tile.write_to(&mut writer, WebP).ok()?;
+    Some(PngImage(writer.into_inner()))
 }
 
 /*
@@ -161,8 +138,11 @@ fn rocket() -> _ {
         .try_into()
         .expect("Should just work??");
 
+    let stop_times: Mutex<HashMap<String, StopWithDuration>> = Mutex::new(HashMap::new());
+
     rocket::build()
         .attach(CORS)
         .manage(gtfs_data)
+        .manage(stop_times)
         .mount("/", routes![index, stops, tiles, dijkstras])
 }

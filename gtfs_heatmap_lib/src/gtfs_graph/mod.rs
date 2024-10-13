@@ -1,5 +1,6 @@
 #![allow(unused)]
 pub mod dijkstras;
+pub mod heatmap;
 pub mod parser;
 
 #[cfg(test)]

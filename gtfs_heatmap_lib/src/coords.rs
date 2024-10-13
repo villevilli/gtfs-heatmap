@@ -2,7 +2,8 @@ use std::f64::{self, consts::PI};
 
 use serde::Serialize;
 
-const EARTH_RADIUS: f64 = 6_317_000.0;
+///Earth radius in meters
+const EARTH_RADIUS: f64 = 6_378_000.0;
 
 #[derive(Debug, Default, Serialize)]
 pub struct Coordinates {
@@ -21,7 +22,8 @@ impl Coordinates {
         }
     }
 
-    pub fn distance(&self, other: Coordinates) -> f64 {
+    ///Calculates distance between two points on earth using the pythagoran theorem
+    pub fn distance(&self, other: &Coordinates) -> f64 {
         let d_lat: f64 = (other.latitude * 2.0 - self.latitude * 2.0).to_radians();
         let d_lon: f64 = (other.longitude - self.longitude).to_radians();
 
@@ -30,7 +32,8 @@ impl Coordinates {
         c * EARTH_RADIUS
     }
 
-    pub fn haversine_distance(&self, other: Coordinates) -> f64 {
+    ///Calculates distance between two points on earth as if earth was a circle.
+    pub fn haversine_distance(&self, other: &Coordinates) -> f64 {
         let d_lat: f64 = (other.latitude - self.latitude).to_radians();
         let d_lon: f64 = (other.longitude - self.longitude).to_radians();
         let lat1: f64 = (self.latitude).to_radians();

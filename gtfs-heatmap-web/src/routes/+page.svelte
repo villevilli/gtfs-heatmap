@@ -151,13 +151,11 @@
             times = fetch(
                 `http://localhost:8000/api/stops/${stop_id}/dijkstras/${date_epoch}`,
             ).then((r) => r.json());
-            /*
             layer.setUrl(
-                `http://localhost:8000/api/tiles/${stop_id}/${selected_time}/${selected_day}/{z}/{x}/{y}/tile.png`,
+                `http://localhost:8000/api/tiles/${stop_id}/${selected_time}/${selected_day}/{z}/{x}/{y}/tile.webp`,
                 false,
             );
             map.addLayer(layer);
-            */
         }
     });
 </script>
