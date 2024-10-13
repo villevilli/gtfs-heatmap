@@ -10,8 +10,8 @@ use std::sync::Arc;
 use coords::Coordinates;
 use futures::executor;
 pub use gtfs_structures::Gtfs;
-use gtfs_structures::{Stop, StopTime};
-use gtfs_types::{seconds_to_hhmmss, Day, StopTrip};
+use gtfs_structures::StopTime;
+use gtfs_types::{Day, StopTrip};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
