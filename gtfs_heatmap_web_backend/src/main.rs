@@ -3,7 +3,7 @@ use std::io::Cursor;
 use std::sync::Mutex;
 
 use gtfs_heatmap_lib::gtfs_graph::dijkstras::StopWithDuration;
-use gtfs_heatmap_lib::gtfs_graph::{self, GtfsGraph};
+use gtfs_heatmap_lib::gtfs_graph::GtfsGraph;
 use rocket::response::Responder;
 use rocket::time::OffsetDateTime;
 
@@ -136,7 +136,7 @@ fn get_graph(gtfs_data: &State<GtfsGraph>) -> Result<Json, Error> {
 */
 #[launch]
 fn rocket() -> _ {
-    let gtfs_data: GtfsGraph = Gtfs::from_path("data/")
+    let gtfs_data: GtfsGraph = Gtfs::from_path("../data/")
         .expect("GTFS data should exsist in \"data/\" folder")
         .try_into()
         .expect("Should just work??");
