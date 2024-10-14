@@ -4,7 +4,7 @@ pub mod coords;
 pub mod gtfs_graph;
 pub mod gtfs_types;
 
-use gtfs_structures::Gtfs;
+pub use gtfs_structures::Gtfs;
 use std::sync::Arc;
 
 use thiserror::Error;
