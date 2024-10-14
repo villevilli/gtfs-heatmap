@@ -119,9 +119,12 @@ async fn tiles(
     let guard: std::sync::MutexGuard<'_, HashMap<String, StopWithDuration>> =
         stop_time.lock().ok()?;
 
-    let tile = gtfs_graph.generate_heatmap_tile(zoom, x, y, &guard);
+    let (tile, time) = gtfs_graph.generate_heatmap_tile(zoom, x, y, &guard);
     let mut writer = Cursor::new(Vec::new());
-    tile.write_to(&mut writer, WebP).ok()?;
+    tile.write_to(&mut writer, WebP)
+        .inspect_err(|err| println!("Error: {}", err))
+        .ok()?;
+    println!("{}\n", time);
     Some(PngImage(writer.into_inner()))
 }
 
