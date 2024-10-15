@@ -1,6 +1,9 @@
+use std::ops::{Add, Div, Mul};
+
 use wgpu::{
-    Adapter, Backends, Color, Device, Instance, InstanceDescriptor, Queue, Surface,
-    SurfaceConfiguration,
+    include_wgsl, Adapter, Backends, Color, ColorWrites, Device, FragmentState, Instance,
+    InstanceDescriptor, MultisampleState, PipelineCompilationOptions, Queue, RenderPipeline,
+    Surface, SurfaceConfiguration,
 };
 use winit::{
     application::ApplicationHandler,
@@ -13,6 +16,8 @@ use winit::{
 #[derive(Default)]
 struct App<'a> {
     window: Option<&'a Window>,
+    cx: f64,
+    cy: f64,
     wgpu_state: Option<WgpuState<'a>>,
 }
 
@@ -24,30 +29,19 @@ struct WgpuState<'a> {
     queue: Queue,
     size: PhysicalSize<u32>,
     config: SurfaceConfiguration,
+    render_pipeline: RenderPipeline,
 }
 
-impl<'a> ApplicationHandler for App<'a> {
-    fn resumed(&mut self, event_loop: &event_loop::ActiveEventLoop) {
-        //This leaks memory each time application is resumed.
-        self.window = Some(Box::leak(Box::new(
-            event_loop
-                .create_window(
-                    Window::default_attributes()
-                        .with_title("Hello world!")
-                        .with_visible(true)
-                        .with_resizable(true),
-                )
-                .unwrap(),
-        )));
-
-        let size = self.window.unwrap().inner_size();
+impl<'a> WgpuState<'a> {
+    fn init(window: &'a Window) -> WgpuState<'a> {
+        let size = window.inner_size();
 
         let instance = Instance::new(InstanceDescriptor {
             backends: Backends::GL,
             ..Default::default()
         });
 
-        let surface: Surface<'a> = instance.create_surface(self.window.unwrap()).unwrap();
+        let surface: Surface<'a> = instance.create_surface(window).unwrap();
 
         let adapter =
             futures::executor::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -88,7 +82,57 @@ impl<'a> ApplicationHandler for App<'a> {
             desired_maximum_frame_latency: 2,
         };
 
-        self.wgpu_state = Some(WgpuState {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+        });
+
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                push_constant_ranges: &[],
+            });
+
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                buffers: &[],
+            },
+            fragment: Some(FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                compilation_options: PipelineCompilationOptions::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+            cache: None,
+        });
+
+        WgpuState {
             instance,
             adapter,
             surface,
@@ -96,7 +140,26 @@ impl<'a> ApplicationHandler for App<'a> {
             queue,
             size,
             config,
-        })
+            render_pipeline,
+        }
+    }
+}
+
+impl ApplicationHandler for App<'_> {
+    fn resumed(&mut self, event_loop: &event_loop::ActiveEventLoop) {
+        //This leaks memory each time application is resumed.
+        self.window = Some(Box::leak(Box::new(
+            event_loop
+                .create_window(
+                    Window::default_attributes()
+                        .with_title("Hello world!")
+                        .with_visible(true)
+                        .with_resizable(true),
+                )
+                .unwrap(),
+        )));
+
+        self.wgpu_state = Some(WgpuState::init(self.window.as_ref().unwrap()))
     }
 
     fn window_event(
@@ -134,15 +197,15 @@ impl<'a> ApplicationHandler for App<'a> {
                     });
 
                 {
-                    let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: Some("Render Pass"),
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                             view: &view,
                             resolve_target: None,
                             ops: wgpu::Operations {
                                 load: wgpu::LoadOp::Clear(Color {
-                                    r: 0.2,
-                                    g: 0.2,
+                                    r: self.cy.mul(0.01).sin().div(2.0).add(0.5),
+                                    g: self.cx.mul(0.01).sin().div(2.0).add(0.5),
                                     b: 0.0,
                                     a: 1.0,
                                 }),
@@ -153,6 +216,10 @@ impl<'a> ApplicationHandler for App<'a> {
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
+
+                    render_pass.set_pipeline(&self.wgpu_state.as_ref().unwrap().render_pipeline);
+
+                    render_pass.draw(0..3, 0..1);
                 }
                 self.wgpu_state
                     .as_ref()
@@ -172,6 +239,15 @@ impl<'a> ApplicationHandler for App<'a> {
                         &self.wgpu_state.as_ref().unwrap().config,
                     );
                 }
+            }
+            CursorMoved {
+                device_id: _,
+                position,
+            } => {
+                self.cx = position.x;
+                self.cy = position.y;
+
+                self.window.as_ref().unwrap().request_redraw();
             }
             _ => (),
         }
