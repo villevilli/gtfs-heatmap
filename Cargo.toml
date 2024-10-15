@@ -3,4 +3,4 @@ members = [ "gtfs_heatmap_app",
     "gtfs_heatmap_lib",
     "gtfs_heatmap_web_backend"
 ]
-workspace.resolver = "2"
+resolver = "2"
